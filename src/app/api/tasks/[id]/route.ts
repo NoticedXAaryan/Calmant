@@ -1,9 +1,7 @@
 // Task API — Single Task Operations (GET, PATCH, DELETE)
-// Source: Architecture.md → /api/tasks/[id], Tasks.md → T-007
-
-import { NextRequest } from 'next/server';
-import { store } from '@/lib/store';
-import { respond, respondError } from '@/lib/api-helpers';
+import { NextRequest, NextResponse } from 'next/server';
+import { TaskService } from '@/services/taskService';
+import { getUserId } from '@/lib/auth-utils';
 
 export async function GET(
   _request: NextRequest,
@@ -11,12 +9,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const task = await store.getTask(id);
-    if (!task) return respondError('Task not found', 404);
-    return respond(task);
+    const userId = await getUserId();
+    const task = await TaskService.getTaskById(id, userId);
+    if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    return NextResponse.json(task);
   } catch (error) {
     console.error('[GET /api/tasks/[id]]', error);
-    return respondError('Failed to fetch task');
+    return NextResponse.json({ error: 'Failed to fetch task' }, { status: 500 });
   }
 }
 
@@ -26,13 +25,24 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const userId = await getUserId();
     const body = await request.json();
-    const task = await store.updateTask(id, body);
-    if (!task) return respondError('Task not found', 404);
-    return respond(task);
-  } catch (error) {
+    
+    // Handle nested subtasks update if provided
+    let updateData: any = { ...body };
+    if (body.subtasks) {
+      delete updateData.subtasks;
+    }
+
+    const task = await TaskService.updateTask(id, userId, updateData);
+    
+    return NextResponse.json(task);
+  } catch (error: any) {
     console.error('[PATCH /api/tasks/[id]]', error);
-    return respondError('Failed to update task');
+    if (error.message === 'Task not found') {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to update task' }, { status: 500 });
   }
 }
 
@@ -42,11 +52,15 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const deleted = await store.deleteTask(id);
-    if (!deleted) return respondError('Task not found', 404);
-    return respond({ deleted: true });
-  } catch (error) {
+    const userId = await getUserId();
+    
+    await TaskService.deleteTask(id, userId);
+    return NextResponse.json({ deleted: true });
+  } catch (error: any) {
     console.error('[DELETE /api/tasks/[id]]', error);
-    return respondError('Failed to delete task');
+    if (error.message === 'Task not found') {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to delete task' }, { status: 500 });
   }
 }

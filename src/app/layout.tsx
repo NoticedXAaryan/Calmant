@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
 
 export const metadata: Metadata = {
-  title: "Last-Minute Life Saver | AI Productivity Companion",
-  description: "An AI-powered productivity companion that proactively assists you in planning, prioritizing, and completing tasks before deadlines are missed.",
-  keywords: ["productivity", "AI", "task management", "Gemini", "scheduling"],
+  title: "Calmant | The Masterpiece Executive AI",
+  description: "An elite AI-powered productivity companion crafted by time. Commands your schedule and execution.",
+  keywords: ["calmant", "productivity", "AI", "executive", "assistant", "scheduling"],
 };
+
+import { ThemeProvider } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+// Initialize BullMQ workers
+if (typeof window === "undefined") {
+  import("@/lib/workers").catch((e) => console.error("Failed to load workers", e));
+}
 
 export default function RootLayout({
   children,
@@ -20,14 +24,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} gradient-bg`}>
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-          <Navigation />
-          <main style={{ flex: 1, padding: '24px', marginLeft: '240px', maxWidth: 'calc(100vw - 240px)' }}>
-            {children}
-          </main>
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", geist.variable)}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

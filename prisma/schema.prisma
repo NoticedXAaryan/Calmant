@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  name          String?
+  emailVerified Boolean         @default(false)
+  image         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  onboarded     Boolean         @default(false)
+  tasks         Task[]
+  habits        Habit[]
+  memories      AgentMemory[]
+  waSession     WaSession?
+  ntfyTopic     String?
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  deadline      DateTime
+  estimatedMins Int?
+  actualMins    Int?
+  priority      Float      @default(0.5)
+  entropyScore  Float      @default(0.0)
+  snoozeCount   Int        @default(0)
+  lastAlertedAt DateTime?
+  status        TaskStatus @default(PENDING)
+  calEventId    String?
+  createdAt     DateTime   @default(now())
+  completedAt   DateTime?
+  subtasks      Subtask[]
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subtask {
+  id     String     @id @default(cuid())
+  taskId String
+  title  String
+  status TaskStatus @default(PENDING)
+  task   Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Habit {
+  id          String            @id @default(cuid())
+  userId      String
+  name        String
+  frequency   HabitFrequency
+  streak      Int               @default(0)
+  completions HabitCompletion[]
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HabitCompletion {
+  id      String   @id @default(cuid())
+  habitId String
+  date    DateTime
+  habit   Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  @@unique([habitId, date])
+}
+
+model AgentMemory {
+  id         String   @id @default(cuid())
+  userId     String
+  fact       String
+  category   String   // behavior | preference | pattern | alert
+  confidence Float    @default(0.8)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Baileys stores auth state here — JSON blob, updated on every reconnect
+model WaSession {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  authState Json                          // Baileys creds + keys
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  SKIPPED
+  DEFERRED
+  DRAFT
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
