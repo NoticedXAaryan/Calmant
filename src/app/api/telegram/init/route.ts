@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { initTelegram } from '@/lib/telegram';
 
-let initialized = false;
-
 export async function GET() {
-  if (!initialized) {
-    await initTelegram();
-    initialized = true;
-  }
-  return NextResponse.json({ success: true, message: "Telegram bot initialized" });
+  const status = await initTelegram();
+  return NextResponse.json({
+    success: status.configured && status.running,
+    message: status.label,
+    data: status,
+  });
 }

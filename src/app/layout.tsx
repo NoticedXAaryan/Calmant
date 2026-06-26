@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Calmant | The Masterpiece Executive AI",
-  description: "An elite AI-powered productivity companion crafted by time. Commands your schedule and execution.",
-  keywords: ["calmant", "productivity", "AI", "executive", "assistant", "scheduling"],
+  title: "Calmant | Last-Minute Life Saver",
+  description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks.",
+  keywords: ["calmant", "productivity", "AI", "deadlines", "assistant", "scheduling"],
+  applicationName: "Calmant",
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 // Initialize BullMQ workers
 if (typeof window === "undefined") {
@@ -25,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", geist.variable)}>
+      <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

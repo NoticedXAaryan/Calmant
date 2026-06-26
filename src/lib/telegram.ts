@@ -1,32 +1,66 @@
 import TelegramBot from "node-telegram-bot-api";
 import { agentReply } from "./agent";
 import { transcribeAudio } from "./audio";
-
-// We need a way to map a Telegram User ID to our application User ID.
-// For the hackathon, we assume the bot is used by the single local user, 
-// so we'll grab the first user from Prisma, or pass it explicitly.
 import { prisma } from "./prisma";
 
 let bot: TelegramBot | null = null;
+let startedAt: string | null = null;
+let primaryUserId: string | null = null;
 
-export async function initTelegram() {
-  if (bot) return;
+export interface TelegramStatus {
+  configured: boolean;
+  running: boolean;
+  startedAt: string | null;
+  userLinked: boolean;
+  label: string;
+}
+
+export function getTelegramStatus(): TelegramStatus {
+  const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+
+  if (!configured) {
+    return {
+      configured: false,
+      running: false,
+      startedAt: null,
+      userLinked: false,
+      label: "Bot token missing",
+    };
+  }
+
+  return {
+    configured: true,
+    running: Boolean(bot),
+    startedAt,
+    userLinked: Boolean(primaryUserId),
+    label: bot ? "Bot listener running" : "Ready to start",
+  };
+}
+
+export async function initTelegram(): Promise<TelegramStatus> {
+  if (bot) return getTelegramStatus();
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.log("[Telegram] TELEGRAM_BOT_TOKEN not set. Telegram bot is disabled.");
-    return;
+    return getTelegramStatus();
   }
 
-  // Find the primary user (since this is a single-tenant hackathon demo)
   const user = await prisma.user.findFirst();
   if (!user) {
     console.error("[Telegram] No user found in database. Cannot start Telegram listener.");
-    return;
+    return {
+      configured: true,
+      running: false,
+      startedAt: null,
+      userLinked: false,
+      label: "No app user found",
+    };
   }
-  const userId = user.id;
 
+  primaryUserId = user.id;
   bot = new TelegramBot(token, { polling: true });
+  startedAt = new Date().toISOString();
   console.log("[Telegram] Bot is polling...");
 
   bot.on("message", async (msg) => {
@@ -35,34 +69,27 @@ export async function initTelegram() {
     try {
       let text = msg.text || "";
 
-      // Handle Voice Notes
       if (msg.voice) {
-        await bot!.sendMessage(chatId, "🎤 _Transcribing voice note..._", { parse_mode: "Markdown" });
-        
-        // Get the file link from Telegram
+        await bot!.sendMessage(chatId, "Voice note received. Transcribing...");
+
         const fileLink = await bot!.getFileLink(msg.voice.file_id);
-        
-        // Fetch the file as a buffer
         const response = await fetch(fileLink);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        
-        // Transcribe using Groq
+
         text = await transcribeAudio(buffer);
-        await bot!.sendMessage(chatId, `🎤 *Transcription:* "${text}"\n_Processing..._`, { parse_mode: "Markdown" });
+        await bot!.sendMessage(chatId, `Transcription: "${text}"\nProcessing...`);
       }
 
-      if (!text) return;
+      if (!text.trim()) return;
 
-      // Pass the transcribed or raw text to the Agent
-      const reply = await agentReply(text, userId);
-      
-      // Send the agent's response back to Telegram
+      const reply = await agentReply(text, primaryUserId!);
       await bot!.sendMessage(chatId, reply);
-
     } catch (error) {
       console.error("[Telegram] Error processing message:", error);
-      bot!.sendMessage(chatId, "Sorry, I encountered an error processing your request.");
+      await bot!.sendMessage(chatId, "Sorry, I encountered an error processing your request.");
     }
   });
+
+  return getTelegramStatus();
 }

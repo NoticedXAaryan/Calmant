@@ -1,56 +1,94 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import type { ElementType, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
-  Mail,
-  Calendar,
   Bell,
+  CalendarDays,
   CheckCircle2,
-  XCircle,
-  Send,
   Loader2,
-  ExternalLink,
-  Shield,
-  Clock,
-  Cpu,
-  MessageSquare,
+  Mail,
+  MessageCircle,
+  RefreshCw,
+  Send,
+  Smartphone,
+  XCircle,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-interface NotificationStatus {
-  emailConfigured: boolean;
-  inAppQueueSize: number;
-  unreadCount: number;
+interface IntegrationStatus {
+  email: { configured: boolean; unreadCount: number };
+  telegram: { configured: boolean; running: boolean; startedAt: string | null; userLinked: boolean; label: string };
+  googleCalendar: { configured: boolean; linked: boolean; label: string };
+  whatsapp: { configured: boolean; label: string };
+  inApp: { configured: boolean; unreadCount: number; queueSize: number };
 }
 
-interface LLMStatus {
-  gemini: { available: boolean; configured: boolean };
-  hermes: { available: boolean; url: string };
+interface ChannelCardProps {
+  icon: ElementType;
+  title: string;
+  description: string;
+  configured: boolean;
+  status: string;
+  action?: ReactNode;
+}
+
+function ChannelCard({ icon: Icon, title, description, configured, status, action }: ChannelCardProps) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+            <Icon className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">{title}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+          </div>
+        </div>
+        <Badge variant="outline" className={configured ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}>
+          {configured ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+          {status}
+        </Badge>
+      </div>
+      {action && <div className="mt-4 flex flex-wrap gap-2">{action}</div>}
+    </div>
+  );
 }
 
 export default function IntegrationsPage() {
-  const [notifStatus, setNotifStatus] = useState<NotificationStatus | null>(null);
-  const [sending, setSending] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-  const [briefingResult, setBriefingResult] = useState<string | null>(null);
-  const [loadingBrief, setLoadingBrief] = useState(false);
+  const [status, setStatus] = useState<IntegrationStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [startingTelegram, setStartingTelegram] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/integrations/status", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to load integrations");
+      setStatus(data.data);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to load integrations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchStatus();
+    const id = window.setTimeout(() => {
+      void fetchStatus();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
 
-  async function fetchStatus() {
-    try {
-      const res = await fetch("/api/notifications/email?action=status");
-      const data = await res.json();
-      if (data.success) setNotifStatus(data.data);
-    } catch (err) {
-      console.error("Failed to fetch status:", err);
-    }
-  }
-
-  async function sendTestEmail() {
-    setSending(true);
-    setTestResult(null);
+  const sendTestEmail = async () => {
+    setSendingEmail(true);
+    setMessage(null);
     try {
       const res = await fetch("/api/notifications/email", {
         method: "POST",
@@ -58,359 +96,129 @@ export default function IntegrationsPage() {
         body: JSON.stringify({ type: "test" }),
       });
       const data = await res.json();
-      setTestResult(
-        data.data?.sent
-          ? "✅ Test email sent successfully!"
-          : `⚠️ ${data.data?.reason || "Failed to send"}`
-      );
+      setMessage(data.data?.sent ? "Test email sent." : data.data?.reason || "Email is not configured.");
     } catch {
-      setTestResult("❌ Failed to send test email");
+      setMessage("Could not send test email.");
     } finally {
-      setSending(false);
+      setSendingEmail(false);
     }
-  }
+  };
 
-  async function triggerBriefing(type: "morning" | "evening") {
-    setLoadingBrief(true);
-    setBriefingResult(null);
+  const startTelegram = async () => {
+    setStartingTelegram(true);
+    setMessage(null);
     try {
-      const endpoint = type === "morning" ? "/api/agent/morning-brief" : "/api/agent/evening-review";
-      const res = await fetch(endpoint, { method: "POST" });
+      const res = await fetch("/api/telegram/init");
       const data = await res.json();
-      setBriefingResult(
-        data.success
-          ? `✅ ${type === "morning" ? "Morning briefing" : "Evening review"} generated!${data.data?.email?.sent ? " Email sent." : " (Email not configured)"}`
-          : `⚠️ Failed to generate ${type} briefing`
-      );
+      setMessage(data.message || (data.success ? "Telegram is running." : "Telegram is not ready."));
+      await fetchStatus();
     } catch {
-      setBriefingResult("❌ Failed to trigger briefing");
+      setMessage("Could not start Telegram.");
     } finally {
-      setLoadingBrief(false);
+      setStartingTelegram(false);
     }
-  }
+  };
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{ marginBottom: "32px" }}
-      >
-        <h1 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "8px" }}>
-          Integrations
-        </h1>
-        <p style={{ color: "var(--color-text-muted)", fontSize: "14px" }}>
-          Configure notification channels and connected services.
-        </p>
-      </motion.div>
-
-      {/* Notification Channels */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        {/* Email (Resend) */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "10px",
-                background: "rgba(99, 102, 241, 0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Mail size={20} color="var(--color-agent-primary)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "15px" }}>Email Notifications</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>via Resend</div>
-              </div>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 md:px-8 md:py-8">
+        <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <Smartphone className="h-3.5 w-3.5" />
+              Channels
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              {notifStatus?.emailConfigured ? (
-                <>
-                  <CheckCircle2 size={16} color="var(--color-entropy-cool)" />
-                  <span style={{ color: "var(--color-entropy-cool)", fontSize: "13px", fontWeight: 600 }}>Connected</span>
-                </>
-              ) : (
-                <>
-                  <XCircle size={16} color="var(--color-text-muted)" />
-                  <span style={{ color: "var(--color-text-muted)", fontSize: "13px", fontWeight: 600 }}>Not configured</span>
-                </>
-              )}
-            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+              Integrations
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Connect the places where Calmant should reach you. The app works without external channels, but email and messaging make deadlines harder to miss.
+            </p>
           </div>
+          <Button variant="outline" onClick={fetchStatus} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </Button>
+        </header>
 
-          <div style={{
-            padding: "12px 16px", background: "var(--color-surface-2)",
-            borderRadius: "8px", marginBottom: "16px", fontSize: "13px", color: "var(--color-text-secondary)",
-          }}>
-            {notifStatus?.emailConfigured ? (
-              <span>Emails will be sent for critical task alerts, morning briefings, and evening reviews.</span>
-            ) : (
-              <span>
-                Set <code style={{ color: "var(--color-agent-primary)", background: "var(--color-surface-3)", padding: "2px 6px", borderRadius: "4px" }}>RESEND_API_KEY</code>
-                {" and "}
-                <code style={{ color: "var(--color-agent-primary)", background: "var(--color-surface-3)", padding: "2px 6px", borderRadius: "4px" }}>USER_EMAIL</code>
-                {" environment variables to enable."}
-              </span>
-            )}
+        {message && (
+          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            {message}
           </div>
+        )}
 
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button className="btn-secondary" onClick={sendTestEmail} disabled={sending} style={{ display: "flex", alignItems: "center", gap: "6px", opacity: sending ? 0.7 : 1 }}>
-              {sending ? <Loader2 size={14} className="animate-spin" style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
-              Send test email
-            </button>
-            <button className="btn-ghost" onClick={() => triggerBriefing("morning")} disabled={loadingBrief} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Clock size={14} />
-              Trigger morning brief
-            </button>
-            <button className="btn-ghost" onClick={() => triggerBriefing("evening")} disabled={loadingBrief} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Clock size={14} />
-              Trigger evening review
-            </button>
+        {loading && !status ? (
+          <div className="flex min-h-[260px] items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-
-          <AnimatePresence>
-            {(testResult || briefingResult) && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                style={{
-                  marginTop: "12px", padding: "10px 14px", borderRadius: "8px",
-                  background: "var(--color-surface-2)", fontSize: "13px",
-                  color: "var(--color-text-secondary)",
-                }}
-              >
-                {testResult || briefingResult}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Telegram Connection */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "10px",
-                background: "rgba(0, 136, 204, 0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <MessageSquare size={20} color="#0088cc" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "15px" }}>Telegram Bot</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Instant & Free External Bot</div>
-              </div>
-            </div>
+        ) : status ? (
+          <div className="grid gap-4">
+            <ChannelCard
+              icon={Bell}
+              title="In-app alerts"
+              description={`Always on. Current queue: ${status.inApp.queueSize} alerts, ${status.inApp.unreadCount} unread.`}
+              configured={status.inApp.configured}
+              status="Active"
+            />
+            <ChannelCard
+              icon={Mail}
+              title="Email"
+              description="Critical alerts and test notifications go to the configured recipient email."
+              configured={status.email.configured}
+              status={status.email.configured ? "Connected" : "Not configured"}
+              action={
+                <Button variant="outline" onClick={sendTestEmail} disabled={sendingEmail}>
+                  {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Send test
+                </Button>
+              }
+            />
+            <ChannelCard
+              icon={CalendarDays}
+              title="Google Calendar"
+              description="Reads upcoming events and can place focused work blocks when the signed-in account has Calendar access."
+              configured={status.googleCalendar.configured && status.googleCalendar.linked}
+              status={status.googleCalendar.label}
+              action={
+                <div className="text-sm text-muted-foreground">
+                  Calendar uses Google sign-in with Calendar scopes. Sign out and sign back in with Google if this is not connected.
+                </div>
+              }
+            />
+            <ChannelCard
+              icon={MessageCircle}
+              title="Telegram"
+              description="Use Telegram for task capture and voice-note processing when the bot token is configured by the app owner."
+              configured={status.telegram.configured && status.telegram.running}
+              status={status.telegram.label}
+              action={
+                status.telegram.configured ? (
+                  <Button variant="outline" onClick={startTelegram} disabled={startingTelegram}>
+                    {startingTelegram ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                    {status.telegram.running ? "Check listener" : "Start bot listener"}
+                  </Button>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Add TELEGRAM_BOT_TOKEN in the environment, then restart the app.
+                  </div>
+                )
+              }
+            />
+            <ChannelCard
+              icon={MessageCircle}
+              title="WhatsApp"
+              description="WhatsApp requires an official Meta webhook setup. When configured, incoming messages can route into the assistant."
+              configured={status.whatsapp.configured}
+              status={status.whatsapp.label}
+              action={
+                <div className="text-sm text-muted-foreground">
+                  This channel is not user-self-serve yet; keep it hidden in production unless configured.
+                </div>
+              }
+            />
           </div>
-
-          <div style={{
-            padding: "12px 16px", background: "var(--color-surface-2)",
-            borderRadius: "8px", marginBottom: "16px", fontSize: "13px", color: "var(--color-text-secondary)",
-          }}>
-            <span>To use Telegram as your AI Assistant:</span>
-            <ol style={{ marginTop: "8px", paddingLeft: "20px" }}>
-              <li>Open Telegram and message <b>@BotFather</b></li>
-              <li>Type <code>/newbot</code> and follow the prompts</li>
-              <li>Copy the API Token and paste it into your <code>.env</code> file as <code>TELEGRAM_BOT_TOKEN=...</code></li>
-              <li>Restart the server. The bot will automatically start polling!</li>
-            </ol>
-          </div>
-        </motion.div>
-
-        {/* WhatsApp Meta API Connection */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "10px",
-                background: "rgba(34, 197, 94, 0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <MessageSquare size={20} color="#25D366" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "15px" }}>WhatsApp (Meta API)</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Official WhatsApp Webhook</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{
-            padding: "12px 16px", background: "var(--color-surface-2)",
-            borderRadius: "8px", marginBottom: "16px", fontSize: "13px", color: "var(--color-text-secondary)",
-          }}>
-            <span>To use the official Meta WhatsApp API:</span>
-            <ol style={{ marginTop: "8px", paddingLeft: "20px" }}>
-              <li>Set up a Meta Developer account and create a WhatsApp App</li>
-              <li>Set your webhook URL to <code>https://your-ngrok-url.com/api/whatsapp/meta/webhook</code></li>
-              <li>Add the following to your <code>.env</code> file:
-                <ul style={{ marginTop: "4px" }}>
-                  <li><code>WHATSAPP_VERIFY_TOKEN</code> (Any random string you choose)</li>
-                  <li><code>WHATSAPP_ACCESS_TOKEN</code> (Permanent or temporary token from Meta)</li>
-                  <li><code>WHATSAPP_PHONE_ID</code> (Phone Number ID from Meta)</li>
-                </ul>
-              </li>
-            </ol>
-          </div>
-        </motion.div>
-
-        {/* In-App Notifications */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "10px",
-                background: "rgba(16, 185, 129, 0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Bell size={20} color="var(--color-entropy-cool)" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "15px" }}>In-App Notifications</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Entropy alerts & toasts</div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <CheckCircle2 size={16} color="var(--color-entropy-cool)" />
-              <span style={{ color: "var(--color-entropy-cool)", fontSize: "13px", fontWeight: 600 }}>Active</span>
-            </div>
-          </div>
-          <div style={{
-            padding: "12px 16px", background: "var(--color-surface-2)",
-            borderRadius: "8px", fontSize: "13px", color: "var(--color-text-secondary)",
-          }}>
-            {notifStatus ? (
-              <span>Queue: {notifStatus.inAppQueueSize} notifications · {notifStatus.unreadCount} unread</span>
-            ) : (
-              <span>Loading status...</span>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Google Calendar */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "10px",
-                background: "rgba(66, 133, 244, 0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Calendar size={20} color="#4285F4" />
-              </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "15px" }}>Google Calendar</div>
-                <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Sync schedule blocks</div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <CheckCircle2 size={16} color="var(--color-entropy-cool)" />
-              <span style={{ color: "var(--color-entropy-cool)", fontSize: "13px", fontWeight: 600 }}>Active</span>
-            </div>
-          </div>
-          <div style={{
-            padding: "12px 16px", background: "var(--color-surface-2)",
-            borderRadius: "8px", fontSize: "13px", color: "var(--color-text-muted)",
-          }}>
-            Google Calendar integration is active. The AI will check your schedule before assigning deadlines.
-          </div>
-        </motion.div>
-
-        {/* LLM Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card"
-          style={{ padding: "24px" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-            <div style={{
-              width: "40px", height: "40px", borderRadius: "10px",
-              background: "rgba(168, 85, 247, 0.1)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Cpu size={20} color="var(--color-accent-purple)" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: "15px" }}>AI Models</div>
-              <div style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>Groq (llama-3.3-70b-versatile)</div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 14px", background: "var(--color-surface-2)", borderRadius: "8px",
-            }}>
-              <span style={{ fontSize: "13px", fontWeight: 500 }}>Groq Fast Inference</span>
-              <span style={{ fontSize: "12px", color: "var(--color-entropy-cool)", display: "flex", alignItems: "center", gap: "4px" }}>
-                <Shield size={12} /> Primary
-              </span>
-            </div>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "10px 14px", background: "var(--color-surface-2)", borderRadius: "8px",
-            }}>
-              <span style={{ fontSize: "13px", fontWeight: 500 }}>Whisper (Audio Transcription)</span>
-              <span style={{ fontSize: "12px", color: "var(--color-entropy-cool)", display: "flex", alignItems: "center", gap: "4px" }}>
-                <Shield size={12} /> Primary
-              </span>
-            </div>
-          </div>
-        </motion.div>
+        ) : null}
       </div>
-
-      {/* Links */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        style={{ marginTop: "24px", display: "flex", gap: "16px", flexWrap: "wrap" }}
-      >
-        <a
-          href="https://resend.com/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-ghost"
-          style={{ display: "flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
-        >
-          <ExternalLink size={14} />
-          Resend Docs
-        </a>
-      </motion.div>
     </div>
   );
 }

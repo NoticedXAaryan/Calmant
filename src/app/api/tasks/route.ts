@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       description: body.description,
       deadline: new Date(body.deadline),
       estimatedMins: body.estimatedMins,
+      priority: body.priority,
     });
 
     return NextResponse.json(task, { status: 201 });

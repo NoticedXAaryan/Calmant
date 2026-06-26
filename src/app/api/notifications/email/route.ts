@@ -69,9 +69,9 @@ export async function POST(req: NextRequest) {
       }
 
       const result = await sendEmail(
-        '✅ Test Email — Life Saver is Connected',
+        'Test Email - Life Saver is Connected',
         `<div style="font-family:Inter,system-ui;padding:20px;background:#18181b;border-radius:12px;border:1px solid #27272a;">
-          <h2 style="color:#f1f5f9;margin:0 0 12px;">✅ Email Connected!</h2>
+          <h2 style="color:#f1f5f9;margin:0 0 12px;">Email Connected</h2>
           <p style="color:#94a3b8;margin:0;">Your Last-Minute Life Saver is now connected to email notifications via Resend.</p>
         </div>`
       );
@@ -81,13 +81,13 @@ export async function POST(req: NextRequest) {
     // Handle critical alert
     if (type === 'critical') {
       const tasks = await prisma.task.findMany({ where: { userId, status: { in: ['PENDING', 'IN_PROGRESS'] } } });
-      const critical = tasks.filter((t: any) => t.entropyScore >= 0.7);
+      const critical = tasks.filter((task) => task.entropyScore >= 0.7);
 
       if (critical.length === 0) {
         return respond({ sent: false, reason: 'No critical tasks found' });
       }
 
-      const { subject, html } = criticalAlertEmail(critical as any);
+      const { subject, html } = criticalAlertEmail(critical);
       const result = await sendEmail(subject, html);
       return respond(result);
     }

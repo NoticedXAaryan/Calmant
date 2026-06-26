@@ -60,6 +60,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -69,6 +70,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
     setMessages(loadHistory());
   }, []);
 
+  // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -79,7 +81,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
     if (mounted && messages.length > 0) {
       saveHistory(messages);
     }
-  }, [messages, mounted]);
+  }, [messages, mounted, loading]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -104,6 +106,9 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
+
+      // Reset textarea height instantly
+      if (inputRef.current) inputRef.current.style.height = "auto";
 
       try {
         const res = await fetch("/api/agent/chat", {
@@ -137,7 +142,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       }
 
       setLoading(false);
-      inputRef.current?.focus();
+      setTimeout(() => inputRef.current?.focus(), 10);
     },
     [loading]
   );
@@ -154,43 +159,49 @@ export default function AssistantChat({ userName }: { userName?: string }) {
     }
   };
 
+  const handleInterimTranscript = (text: string) => {
+    setInput(text);
+  };
+
   const handleVoiceTranscript = (text: string) => {
     setInput(text);
-    setTimeout(() => sendMessage(text), 300);
+    if (text.trim()) {
+      sendMessage(text);
+    }
   };
 
   const greeting = getGreeting();
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       {/* ── Messages area ────────────────────────────────────────── */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto px-4"
         style={{ scrollbarWidth: "none" }}
       >
         {/* Empty state */}
         {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center px-4">
+          <div className="flex h-full flex-col items-center justify-center">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="text-center max-w-lg"
+              className="text-center w-full max-w-2xl px-2"
             >
-              <h1 className="text-2xl font-semibold mb-2 text-foreground">
+              <h1 className="text-3xl font-semibold mb-3 text-foreground tracking-tight">
                 {greeting}, {userName || "there"}
               </h1>
-              <p className="text-muted-foreground text-[15px] mb-10">
+              <p className="text-muted-foreground text-base mb-12">
                 How can I help you today?
               </p>
 
-              <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
                 {QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.label}
                     onClick={() => sendMessage(action.message)}
-                    className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    className="rounded-xl border border-border/60 bg-card/50 p-4 text-left text-sm text-muted-foreground transition-all hover:bg-accent hover:text-foreground hover:shadow-sm"
                   >
                     {action.label}
                   </button>
@@ -202,34 +213,34 @@ export default function AssistantChat({ userName }: { userName?: string }) {
 
         {/* Messages */}
         {messages.length > 0 && (
-          <div className="mx-auto max-w-[48rem] px-4 py-6">
+          <div className="mx-auto w-full max-w-3xl py-8">
             {messages.map((msg, idx) => (
               <motion.div
                 key={msg.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className={`mb-6 ${msg.role === "user" ? "" : ""}`}
+                className="mb-8"
               >
                 {/* Role label */}
-                <div className="mb-1.5 text-xs font-semibold text-foreground/70">
+                <div className="mb-2 text-sm font-semibold text-foreground">
                   {msg.role === "user" ? (userName || "You") : "Calmant"}
                 </div>
 
                 {/* Message text */}
                 <div
-                  className={`text-[15px] leading-7 whitespace-pre-wrap ${
+                  className={`text-base leading-relaxed whitespace-pre-wrap ${
                     msg.role === "user"
                       ? "text-foreground"
-                      : "text-foreground/85"
+                      : "text-foreground/90"
                   }`}
                 >
                   {msg.content}
                 </div>
 
-                {/* Divider between messages (not after last) */}
-                {idx < messages.length - 1 && (
-                  <div className="mt-6 border-b border-border/50" />
+                {/* Divider between messages (not after last unless loading) */}
+                {(idx < messages.length - 1 || loading) && (
+                  <div className="mt-8 border-b border-border/40" />
                 )}
               </motion.div>
             ))}
@@ -238,24 +249,25 @@ export default function AssistantChat({ userName }: { userName?: string }) {
             <AnimatePresence>
               {loading && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="mb-6"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
+                  className="mb-8 pt-4"
                 >
-                  <div className="mb-1.5 text-xs font-semibold text-foreground/70">
+                  <div className="mb-2 text-sm font-semibold text-foreground">
                     Calmant
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 h-6">
                     {[0, 1, 2].map((i) => (
                       <motion.span
                         key={i}
-                        className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
-                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        className="h-2 w-2 rounded-full bg-foreground/40"
+                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
                         transition={{
-                          duration: 1.2,
+                          duration: 1.4,
                           repeat: Infinity,
                           delay: i * 0.2,
+                          ease: "easeInOut",
                         }}
                       />
                     ))}
@@ -268,13 +280,15 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       </div>
 
       {/* ── Input area ───────────────────────────────────────────── */}
-      <div className="shrink-0 px-4 pb-4 pt-2">
+      <div className="shrink-0 px-4 pb-6 pt-2 bg-gradient-to-t from-background via-background to-transparent">
         <form
           onSubmit={handleSubmit}
-          className="mx-auto max-w-[48rem]"
+          className="mx-auto w-full max-w-3xl"
         >
-          <div className="relative flex items-end rounded-2xl border border-border bg-card px-3 py-2 shadow-sm focus-within:border-foreground/20 transition-colors">
+          <div className="relative flex items-end gap-2 rounded-[24px] border border-border/80 bg-card/80 px-4 py-2.5 shadow-sm backdrop-blur-md focus-within:border-foreground/30 focus-within:ring-2 focus-within:ring-foreground/5 transition-all">
+            
             <VoiceInput
+              onInterimTranscript={handleInterimTranscript}
               onTranscript={handleVoiceTranscript}
               disabled={loading}
             />
@@ -287,7 +301,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
               placeholder="Message Calmant..."
               disabled={loading}
               rows={1}
-              className="flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none disabled:opacity-50"
+              className="flex-1 resize-none bg-transparent py-2.5 px-1 text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50"
               style={{ maxHeight: "200px" }}
             />
 
@@ -295,14 +309,14 @@ export default function AssistantChat({ userName }: { userName?: string }) {
               type="submit"
               size="icon"
               disabled={loading || !input.trim()}
-              className="h-8 w-8 shrink-0 rounded-lg"
+              className="mb-1 h-9 w-9 shrink-0 rounded-full transition-transform active:scale-95 disabled:opacity-30 disabled:hover:bg-primary"
             >
               <ArrowUp className="h-4 w-4" />
             </Button>
           </div>
 
-          <p className="mt-2 text-center text-[11px] text-muted-foreground/50">
-            Calmant can make mistakes. Check important info.
+          <p className="mt-3 text-center text-xs text-muted-foreground/70">
+            Calmant can make mistakes. Consider verifying important information.
           </p>
         </form>
       </div>

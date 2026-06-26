@@ -3,6 +3,7 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { prisma } from "./prisma";
 import { z } from "zod";
+import { createGroq } from "@ai-sdk/groq";
 
 // --- Tools ---
 
@@ -10,14 +11,14 @@ const getTasksTool = createTool({
   id: "get_tasks",
   description: "Fetch the user's current tasks, sorted by urgency score.",
   inputSchema: z.object({ limit: z.number().optional() }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     const tasks = await prisma.task.findMany({
       where:   { userId, status: { in: ["PENDING", "IN_PROGRESS"] } },
       orderBy: { entropyScore: "desc" },
-      take:    context.limit ?? 10,
+      take:    data.limit ?? 10,
       include: { subtasks: true },
     });
     return tasks.map((t) => ({
@@ -70,9 +71,9 @@ const markDoneTool = createTool({
   id: "mark_done",
   description: "Mark a task as completed by fuzzy-matching its title.",
   inputSchema: z.object({ query: z.string() }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     const tasks = await prisma.task.findMany({
       where: { userId, status: { in: ["PENDING", "IN_PROGRESS"] } },
@@ -98,9 +99,9 @@ const draftTaskTool = createTool({
     deadline: z.string().describe("ISO datetime string"),
     estimatedMins: z.number().optional(),
   }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     const task = await prisma.task.create({
       data: {
@@ -122,9 +123,9 @@ const confirmTaskTool = createTool({
   id: "confirm_task",
   description: "Confirms a DRAFT task and moves it to PENDING.",
   inputSchema: z.object({ taskId: z.string().optional() }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     let idToConfirm = data.taskId;
     
@@ -150,9 +151,9 @@ const checkCalendarTool = createTool({
   id: "check_calendar",
   description: "Check the user's Google Calendar for upcoming events to avoid scheduling conflicts.",
   inputSchema: z.object({ limit: z.number().optional() }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     try {
       const { getUpcomingEvents } = await import("./calendar");
@@ -177,9 +178,9 @@ const scheduleMeetingTool = createTool({
     durationMins: z.number().optional().describe("Duration in minutes, defaults to 30"),
     attendee: z.string().optional().describe("Name of the person to meet with"),
   }),
-  execute: async (data, { context }: any) => {
-    const userId = context?.userId as string;
-    if (!userId) throw new Error("Missing userId in context");
+  execute: async (data, { runId }: any) => {
+    const userId = runId as string;
+    if (!userId) throw new Error("Missing userId (runId) in context");
 
     const duration = data.durationMins || 30;
     const startDate = new Date(data.startTime);
@@ -252,11 +253,8 @@ Response style:
 - After completing an action, offer a natural follow-up: "That's booked. Want me to check if you have any conflicts?"
 - Use emoji sparingly but effectively (✅ for confirmations, 📅 for calendar, ⏰ for reminders)
 - Never use markdown headers or bullet lists unless the user asks for a summary of multiple items.`,
-  model: {
-    provider: "GROQ",
-    name: "llama-3.3-70b-versatile",
-    toolChoice: "auto",
-  } as any,
+  // @ts-expect-error Mastra currently types AI SDK models through v3, while @ai-sdk/groq returns a v4 model.
+  model: createGroq({ apiKey: process.env.GROQ_API_KEY })("llama-3.3-70b-versatile"),
   tools: { 
     get_tasks: getTasksTool, 
     decompose_task: decomposeTaskTool, 
@@ -277,8 +275,8 @@ export async function agentReply(message: string, userId: string): Promise<strin
 
   try {
     const result = await agent.generate(message, {
-      context: { userId },
-    } as any);
+      runId: userId,
+    });
     
     // Store interaction in AgentMemory for future personalization
     await prisma.agentMemory.create({

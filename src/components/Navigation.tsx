@@ -22,11 +22,12 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
 
 const navItems = [
-  { href: "/dashboard", label: "Chat", icon: MessageSquare },
+  { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },
   { href: "/dashboard/habits", label: "Habits", icon: Target },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/assistant", label: "Assistant", icon: MessageSquare },
   { href: "/dashboard/integrations", label: "Integrations", icon: Zap },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 function UserProfile() {
@@ -99,12 +100,12 @@ export default function Navigation() {
           <span className="text-base font-semibold tracking-tight">Calmant</span>
         </div>
 
-        {/* New Chat button */}
+        {/* Primary action */}
         <div className="px-1 mb-4">
           <Link href="/dashboard">
             <Button variant="outline" className="w-full justify-start gap-2 text-sm font-normal h-9">
-              <MessageSquare size={15} />
-              New chat
+              <LayoutDashboard size={15} />
+              Open today
             </Button>
           </Link>
         </div>

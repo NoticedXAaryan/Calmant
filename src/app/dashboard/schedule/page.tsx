@@ -1,204 +1,150 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Calendar, Clock, ChevronLeft, ChevronRight } from "lucide-react";
-import type { ScheduleBlock } from "@/lib/types";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, Clock, Loader2, RefreshCw } from "lucide-react";
+import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7am to 9pm
+interface ScheduleBlock {
+  id: string;
+  taskId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  entropyScore: number;
+  type: "focus";
+  status: "scheduled";
+}
+
+function formatDuration(block: ScheduleBlock) {
+  const mins = Math.round((new Date(block.endTime).getTime() - new Date(block.startTime).getTime()) / 60000);
+  return `${mins} min`;
+}
+
+function riskClass(score: number) {
+  if (score >= 0.85) return "bg-red-500";
+  if (score >= 0.65) return "bg-orange-500";
+  if (score >= 0.4) return "bg-amber-500";
+  return "bg-emerald-500";
+}
 
 export default function SchedulePage() {
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([]);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBlocks = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/schedule", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to fetch schedule");
+      setBlocks(data.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch schedule");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBlocks = async () => {
-      setLoading(true);
-      try {
-        const startDate = weekStart.toISOString();
-        const endDate = addDays(weekStart, 7).toISOString();
-        const res = await fetch(`/api/schedule?start=${startDate}&end=${endDate}`);
-        const data = await res.json();
-        if (data.success) setBlocks(data.data);
-      } catch (error) {
-        console.error("Failed to fetch schedule:", error);
-      }
-      setLoading(false);
-    };
-    fetchBlocks();
-  }, [weekStart]);
+    const id = window.setTimeout(() => {
+      void fetchBlocks();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const today = new Date();
-
-  const getBlocksForDayHour = (day: Date, hour: number) => {
-    return blocks.filter((b) => {
-      const start = new Date(b.startTime);
-      const startHour = start.getHours();
-      return isSameDay(start, day) && startHour === hour;
-    });
-  };
-
-  const getBlockHeight = (block: ScheduleBlock) => {
-    const start = new Date(block.startTime);
-    const end = new Date(block.endTime);
-    const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    return Math.max(durationHours * 60, 30); // min 30px
-  };
-
-  const blockColors = [
-    "rgba(99, 102, 241, 0.3)",
-    "rgba(6, 182, 212, 0.3)",
-    "rgba(168, 85, 247, 0.3)",
-    "rgba(236, 72, 153, 0.3)",
-    "rgba(16, 185, 129, 0.3)",
-  ];
+  const totalMins = useMemo(() => {
+    return blocks.reduce((total, block) => {
+      return total + Math.round((new Date(block.endTime).getTime() - new Date(block.startTime).getTime()) / 60000);
+    }, 0);
+  }, [blocks]);
 
   return (
-    <div style={{ maxWidth: "1100px" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
-        <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, margin: 0 }}>
-            <span className="gradient-text">Schedule</span>
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "var(--color-text-muted)", fontSize: "14px" }}>
-            Your week at a glance — blocks booked by the agent
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <button className="btn-ghost" onClick={() => setWeekStart((prev) => addDays(prev, -7))}>
-            <ChevronLeft size={18} />
-          </button>
-          <button className="btn-secondary" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-            Today
-          </button>
-          <button className="btn-ghost" onClick={() => setWeekStart((prev) => addDays(prev, 7))}>
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-5 md:px-8 md:py-8">
+        <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5" />
+              Schedule
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+              Focus blocks
+            </h1>
+          </div>
+          <Button variant="outline" onClick={fetchBlocks} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </Button>
+        </header>
 
-      {/* Grid */}
-      <div className="glass-card-static" style={{ overflow: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", minWidth: "800px" }}>
-          {/* Header Row */}
-          <div style={{ padding: "16px 8px", borderBottom: "1px solid var(--color-glass-border)" }} />
-          {days.map((day) => {
-            const isToday = isSameDay(day, today);
-            return (
-              <div
-                key={day.toISOString()}
-                style={{
-                  padding: "12px 8px",
-                  textAlign: "center",
-                  borderBottom: "1px solid var(--color-glass-border)",
-                  borderLeft: "1px solid var(--color-glass-border)",
-                  background: isToday ? "rgba(99, 102, 241, 0.05)" : "transparent",
-                }}
-              >
-                <div style={{ fontSize: "11px", color: "var(--color-text-muted)", textTransform: "uppercase", fontWeight: 600 }}>
-                  {format(day, "EEE")}
-                </div>
-                <div
-                  style={{
-                    fontSize: "20px",
-                    fontWeight: 700,
-                    marginTop: "2px",
-                    color: isToday ? "var(--color-agent-primary)" : "var(--color-text-primary)",
-                  }}
-                >
-                  {format(day, "d")}
-                </div>
-              </div>
-            );
-          })}
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
-          {/* Time Grid */}
-          {HOURS.map((hour) => (
-            <>
-              {/* Hour Label */}
-              <div
-                key={`label-${hour}`}
-                style={{
-                  padding: "0 8px",
-                  height: "60px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  color: "var(--color-text-muted)",
-                  fontWeight: 500,
-                  paddingTop: "2px",
-                }}
-              >
-                {hour > 12 ? `${hour - 12}pm` : hour === 12 ? "12pm" : `${hour}am`}
-              </div>
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-2xl font-semibold">{blocks.length}</div>
+            <div className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">Blocks</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-2xl font-semibold">{totalMins}</div>
+            <div className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">Minutes</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-2xl font-semibold">
+              {blocks.filter((block) => block.entropyScore >= 0.85).length}
+            </div>
+            <div className="mt-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">Critical first</div>
+          </div>
+        </section>
 
-              {/* Day Cells */}
-              {days.map((day, dayIdx) => {
-                const cellBlocks = getBlocksForDayHour(day, hour);
-                const isToday = isSameDay(day, today);
-                return (
-                  <div
-                    key={`${day.toISOString()}-${hour}`}
-                    style={{
-                      height: "60px",
-                      borderLeft: "1px solid var(--color-glass-border)",
-                      borderTop: "1px solid rgba(255,255,255,0.03)",
-                      position: "relative",
-                      background: isToday ? "rgba(99, 102, 241, 0.02)" : "transparent",
-                    }}
-                  >
-                    {cellBlocks.map((block, blockIdx) => (
-                      <motion.div
-                        key={block.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        style={{
-                          position: "absolute",
-                          top: 2,
-                          left: 2,
-                          right: 2,
-                          height: `${getBlockHeight(block) - 4}px`,
-                          background: blockColors[(dayIdx + blockIdx) % blockColors.length],
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          borderRadius: "8px",
-                          padding: "6px 8px",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          overflow: "hidden",
-                          cursor: "pointer",
-                          zIndex: 5,
-                        }}
-                        title={`${block.title} (${format(new Date(block.startTime), "h:mm a")} - ${format(new Date(block.endTime), "h:mm a")})`}
-                      >
-                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {block.title}
-                        </div>
-                        <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginTop: "2px" }}>
-                          {format(new Date(block.startTime), "h:mm")} - {format(new Date(block.endTime), "h:mm a")}
-                        </div>
-                      </motion.div>
-                    ))}
+        <section className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border p-4">
+            <h2 className="text-base font-semibold">Generated plan</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Built from active tasks, deadlines, estimates, snoozes, and missing subtasks.
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="flex min-h-[260px] items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : blocks.length === 0 ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              No focus blocks available.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {blocks.map((block, index) => (
+                <div key={block.id} className="grid gap-4 p-4 md:grid-cols-[120px_minmax(0,1fr)_120px] md:items-center">
+                  <div className="text-sm text-muted-foreground">
+                    <div className="font-medium text-foreground">{format(new Date(block.startTime), "h:mm a")}</div>
+                    <div>{format(new Date(block.endTime), "h:mm a")}</div>
                   </div>
-                );
-              })}
-            </>
-          ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "16px", fontSize: "12px", color: "var(--color-text-muted)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Calendar size={14} /> {blocks.length} blocks scheduled
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Clock size={14} /> {Math.round(blocks.reduce((acc, b) => acc + (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 60000, 0))} min total
-        </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${riskClass(block.entropyScore)}`} />
+                      <div className="truncate font-medium">{block.title}</div>
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {format(new Date(block.startTime), "EEE, MMM d")} - block {index + 1}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground md:justify-end">
+                    <Clock className="h-4 w-4" />
+                    {formatDuration(block)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
