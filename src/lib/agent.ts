@@ -168,19 +168,90 @@ const checkCalendarTool = createTool({
   },
 });
 
+const scheduleMeetingTool = createTool({
+  id: "schedule_meeting",
+  description: "Schedule a meeting on the user's Google Calendar. Use when the user mentions a meeting, call, appointment, or says things like 'I have a meeting with...', 'schedule a call with...', 'book a meeting...'. Extract the title, date/time, and duration from the user's message.",
+  inputSchema: z.object({
+    title: z.string().describe("Meeting title, e.g. 'Meeting with Alex'"),
+    startTime: z.string().describe("ISO datetime string for when the meeting starts"),
+    durationMins: z.number().optional().describe("Duration in minutes, defaults to 30"),
+    attendee: z.string().optional().describe("Name of the person to meet with"),
+  }),
+  execute: async (data, { context }: any) => {
+    const userId = context?.userId as string;
+    if (!userId) throw new Error("Missing userId in context");
+
+    const duration = data.durationMins || 30;
+    const startDate = new Date(data.startTime);
+    const endDate = new Date(startDate.getTime() + duration * 60000);
+
+    // Create a task record for tracking
+    const task = await prisma.task.create({
+      data: {
+        userId,
+        title: data.title,
+        deadline: startDate,
+        estimatedMins: duration,
+        status: "PENDING",
+      },
+    });
+
+    // Try to add to Google Calendar
+    let calendarResult = null;
+    try {
+      const { addEventToCalendar } = await import("./calendar");
+      calendarResult = await addEventToCalendar(userId, data.title, startDate, duration);
+    } catch (error: any) {
+      // Calendar integration might not be set up — that's okay
+      console.warn("Calendar integration not available:", error.message);
+    }
+
+    const timeStr = startDate.toLocaleString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    return {
+      message: `Scheduled: "${data.title}" for ${timeStr} (${duration} min).${calendarResult ? " Added to your Google Calendar." : ""}${data.attendee ? ` Attendee: ${data.attendee}.` : ""}`,
+      taskId: task.id,
+      calendarEventId: calendarResult?.id || null,
+      startTime: startDate.toISOString(),
+      endTime: endDate.toISOString(),
+    };
+  },
+});
+
 // --- Agent ---
 
 export const lifeSaverAgent = new Agent({
   id: "lifeSaverAgent",
-  name: "Life Saver",
-  instructions: `You are an AI productivity assistant. You help users manage tasks, track habits, and never miss deadlines. Be concise — replies go to WhatsApp.
-Always act: 
-- If the user wants to add/create a task, use 'draft_task' and tell them to reply 'yes' to confirm.
-- If the user replies 'yes' or confirms, use 'confirm_task'.
-- If the user says "plan X", call decompose_task.
-- If they say "done X", call mark_done. 
-- You can use 'check_calendar' to see their schedule before suggesting deadlines.
-Never just describe what you could do.`,
+  name: "Calmant",
+  instructions: `You are Calmant — a proactive AI productivity assistant that acts like a personal executive assistant. You live inside a chat interface and the user talks to you naturally, by typing or using their voice.
+
+Your personality:
+- Warm but efficient. Direct, no fluff.
+- You take action first and confirm after — never ask "would you like me to?", just do it.
+- You're encouraging and helpful, like a trusted assistant who has your back.
+- Keep responses concise and conversational.
+
+Your capabilities and rules:
+- When the user mentions a meeting, call, appointment, catch-up, sync, or anything that sounds like a scheduled event, use 'schedule_meeting' immediately. Extract the title, time, and duration from their message. If duration isn't specified, default to 30 minutes.
+- When the user wants to add/create a task, use 'draft_task' and tell them to reply 'yes' to confirm.
+- When the user replies 'yes', 'confirm', 'go ahead', 'do it', or similar affirmations, use 'confirm_task'.
+- When the user says "plan X" or asks to break down a task, call 'decompose_task'.
+- When they say "done X", "finished X", or "completed X", call 'mark_done'.
+- Use 'check_calendar' to see their schedule before suggesting times or when they ask "what's my day look like?" or "am I free tomorrow?"
+- Use 'get_tasks' when they ask about their tasks, priorities, or what to work on next.
+
+Response style:
+- After scheduling something, confirm with the details: "Done! I've scheduled [title] for [time] ([duration]). Anything else?"
+- After completing an action, offer a natural follow-up: "That's booked. Want me to check if you have any conflicts?"
+- Use emoji sparingly but effectively (✅ for confirmations, 📅 for calendar, ⏰ for reminders)
+- Never use markdown headers or bullet lists unless the user asks for a summary of multiple items.`,
   model: {
     provider: "GROQ",
     name: "llama-3.3-70b-versatile",
@@ -192,7 +263,8 @@ Never just describe what you could do.`,
     mark_done: markDoneTool, 
     draft_task: draftTaskTool, 
     confirm_task: confirmTaskTool,
-    check_calendar: checkCalendarTool
+    check_calendar: checkCalendarTool,
+    schedule_meeting: scheduleMeetingTool,
   },
 });
 

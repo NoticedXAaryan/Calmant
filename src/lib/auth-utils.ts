@@ -1,13 +1,12 @@
 // Auth-aware user ID resolver for API routes.
-// Gets user from session if authenticated, falls back to 'demo-user' for
-// cron-triggered endpoints (morning-brief, scan, etc.) that have no session.
 
 import { auth } from "./auth";
 import { headers } from "next/headers";
 
 /**
  * Get the current user's ID from the Better Auth session.
- * Falls back to 'demo-user' for unauthenticated cron/webhook endpoints.
+ * Throws AuthError (401) for authenticated endpoints.
+ * Pass fallbackAllowed=true for cron/webhook endpoints.
  */
 export async function getUserId(fallbackAllowed = false): Promise<string> {
   try {
@@ -19,14 +18,13 @@ export async function getUserId(fallbackAllowed = false): Promise<string> {
       return session.user.id;
     }
   } catch {
-    // Session check failed (e.g., during build or in cron context)
+    // Session check failed (e.g., during build or cron context)
   }
 
   if (fallbackAllowed) {
     return "demo-user";
   }
 
-  // For authenticated endpoints, throw 401
   throw new AuthError("Unauthorized — please sign in");
 }
 
@@ -47,7 +45,7 @@ export async function getSessionUser(): Promise<{
     if (session?.user) {
       return {
         id: session.user.id,
-        name: session.user.name,
+        name: session.user.name ?? "",
         email: session.user.email,
       };
     }

@@ -8,17 +8,24 @@ export async function POST(request: NextRequest) {
     const { message } = await request.json();
 
     if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Message is required', timestamp: new Date().toISOString() },
+        { status: 400 }
+      );
     }
 
-    // Call Mastra Agent via our robust wrapper
     const replyText = await agentReply(message, userId);
 
     return NextResponse.json({
-      reply: replyText,
+      success: true,
+      data: { content: replyText },
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     console.error('[POST /api/agent/chat]', error);
-    return NextResponse.json({ error: 'Agent failed to respond' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Agent failed to respond', timestamp: new Date().toISOString() },
+      { status: 500 }
+    );
   }
 }

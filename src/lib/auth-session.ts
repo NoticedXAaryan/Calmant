@@ -3,40 +3,43 @@
 
 import { auth } from "./auth";
 import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
 /**
  * Get the authenticated user from the current request.
  * Returns null if not authenticated.
  */
 export async function getUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
 
-  if (!session) return null;
+    if (!session) return null;
 
-  return {
-    id: session.user.id,
-    name: session.user.name,
-    email: session.user.email,
-    image: session.user.image,
-  };
+    return {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      image: session.user.image,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Get the authenticated user or throw a 401.
- * Use this in API routes that require authentication.
+ * Get the authenticated user or return a 401 NextResponse.
+ * Usage:
+ *   const userOrResponse = await requireUser();
+ *   if (userOrResponse instanceof NextResponse) return userOrResponse;
  */
 export async function requireUser() {
   const user = await getUser();
   if (!user) {
-    throw new Response(
-      JSON.stringify({
-        success: false,
-        error: "Unauthorized — please sign in",
-        timestamp: new Date().toISOString(),
-      }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
+    return NextResponse.json(
+      { success: false, error: "Unauthorized — please sign in" },
+      { status: 401 }
     );
   }
   return user;

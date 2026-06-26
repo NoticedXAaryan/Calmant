@@ -13,7 +13,7 @@ export default function DashboardLayout({
     <>
       <div className="flex min-h-screen flex-col bg-background md:flex-row">
         <Navigation />
-        <main className="flex-1 p-6 pt-20 md:ml-64 md:pt-6">
+        <main className="flex-1 flex flex-col pt-14 md:ml-64 md:pt-0">
           {children}
         </main>
       </div>
