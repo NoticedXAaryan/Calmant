@@ -5,7 +5,7 @@ import { getUserId } from '@/lib/auth-utils';
 
 const VALID_STATUSES = new Set(Object.values(TaskStatus));
 
-function errorMessage(error: unknown) {
+function errorMessage(error: any) {
   return error instanceof Error ? error.message : '';
 }
 
@@ -75,7 +75,7 @@ export async function PATCH(
     const task = await TaskService.updateTask(id, userId, updateData);
 
     return NextResponse.json(task);
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error('[PATCH /api/tasks/[id]]', error);
     const message = errorMessage(error);
     if (message === 'Task not found') {
@@ -98,7 +98,7 @@ export async function DELETE(
 
     await TaskService.deleteTask(id, userId);
     return NextResponse.json({ deleted: true });
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error('[DELETE /api/tasks/[id]]', error);
     if (errorMessage(error) === 'Task not found') {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });

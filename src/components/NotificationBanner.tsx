@@ -25,12 +25,41 @@ export default function NotificationBanner() {
       if (data.success && Array.isArray(data.data)) {
         setNotifications(data.data);
       }
+      
+      const healthRes = await fetch("/api/integrations/status");
+      const healthData = await healthRes.json();
+      
+      if (healthData.success && healthData.data) {
+        const degraded: Notification[] = [];
+        for (const [key, val] of Object.entries(healthData.data)) {
+          const integration = val as any;
+          if (integration.status === 'degraded') {
+            degraded.push({
+              id: `degraded-${key}`,
+              type: 'critical',
+              title: `${key.charAt(0).toUpperCase() + key.slice(1)} Connection Issue`,
+              message: integration.lastError || "Action required: Please reconnect to restore service.",
+              timestamp: new Date().toISOString(),
+              read: false,
+            });
+          }
+        }
+        
+        if (degraded.length > 0) {
+          setNotifications(prev => {
+            const map = new Map(prev.map(p => [p.id, p]));
+            degraded.forEach(d => map.set(d.id, d));
+            return Array.from(map.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          });
+        }
+      }
     } catch {
       // Silently fail — notifications are non-critical
     }
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
     return () => clearInterval(interval);
@@ -84,6 +113,12 @@ export default function NotificationBanner() {
               boxShadow: notif.type === "critical"
                 ? "0 4px 20px rgba(239, 68, 68, 0.15)"
                 : "0 4px 20px rgba(0, 0, 0, 0.3)",
+              cursor: notif.id.startsWith("degraded-") ? "pointer" : "default"
+            }}
+            onClick={() => {
+              if (notif.id.startsWith("degraded-")) {
+                window.location.href = "/dashboard/integrations";
+              }
             }}
           >
             <div style={{

@@ -17,10 +17,6 @@ export default function HabitsPage() {
 
   const today = format(new Date(), "yyyy-MM-dd");
 
-  useEffect(() => {
-    fetchHabits();
-  }, []);
-
   const fetchHabits = async () => {
     try {
       const res = await fetch("/api/habits");
@@ -31,6 +27,11 @@ export default function HabitsPage() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchHabits();
+  }, []);
 
   const addHabit = async () => {
     if (!newName.trim()) return;

@@ -91,7 +91,7 @@ export async function chat(
     try {
       const text = await callGemini(prompt, options);
       return { text, model: 'gemini' };
-    } catch (err: unknown) {
+    } catch (err: any) {
       const error = err as { status?: number; code?: string };
       if (error.status === 429 || error.code === 'ECONNREFUSED') {
         console.warn('[LLM] Gemini unavailable, falling back to Hermes');
@@ -127,7 +127,7 @@ export async function chatJSON<T>(
     try {
       const data = await callGeminiJSON<T>(prompt, options);
       return { data, model: 'gemini' };
-    } catch (err: unknown) {
+    } catch (err: any) {
       const error = err as { status?: number; code?: string };
       if (error.status === 429 || error.code === 'ECONNREFUSED') {
         console.warn('[LLM] Gemini unavailable for JSON, falling back to Hermes');

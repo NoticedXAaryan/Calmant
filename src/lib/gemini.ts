@@ -87,7 +87,7 @@ export async function callGemini(
     });
 
     return result.response.text();
-  } catch (error: unknown) {
+  } catch (error: any) {
     const err = error as { status?: number; message?: string };
     if (err.status === 429) {
       // Rate limited by API — wait 5s and retry once
@@ -129,7 +129,7 @@ export async function callGeminiJSON<T>(
 
     const text = result.response.text();
     return JSON.parse(text) as T;
-  } catch (error: unknown) {
+  } catch (error: any) {
     const err = error as { status?: number; message?: string };
     if (err.status === 429) {
       console.warn('[Gemini] Rate limited (429), retrying in 5s...');

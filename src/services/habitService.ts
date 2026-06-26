@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { Habit, HabitCompletion, Prisma } from '@prisma/client';
+import { Habit, HabitCompletion } from '@prisma/client';
 
 export class HabitService {
   static async getUserHabits(userId: string): Promise<(Habit & { completions: HabitCompletion[] })[]> {

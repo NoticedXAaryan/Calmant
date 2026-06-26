@@ -98,15 +98,23 @@ async function createConfirmedTask(userId: string, draft: ConfirmedDraft) {
     include: { subtasks: true },
   });
 
-  const notification = isEmailConfigured()
-    ? await sendEmail(
-        `Captured: ${task.title}`,
-        `<p>Your task was captured and added to Calmant.</p>
-         <p><strong>${task.title}</strong></p>
-         <p>Deadline: ${task.deadline.toLocaleString()}</p>
-         <p>Estimated effort: ${task.estimatedMins ?? 60} minutes</p>`
-      )
-    : { sent: false, reason: "Email is not configured" };
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  let notification = { sent: false, reason: "Email is not configured or user has no email" };
+  
+  if (isEmailConfigured() && user?.email) {
+    const { dispatchDurableNotification } = await import("@/lib/notifications");
+    notification = await dispatchDurableNotification(
+      userId,
+      task.id,
+      "task_created",
+      `Captured: ${task.title}`,
+      `<p>Your task was captured and added to Calmant.</p>
+       <p><strong>${task.title}</strong></p>
+       <p>Deadline: ${task.deadline.toLocaleString()}</p>
+       <p>Estimated effort: ${task.estimatedMins ?? 60} minutes</p>`,
+      user.email
+    ) as any;
+  }
 
   return { task, notification };
 }

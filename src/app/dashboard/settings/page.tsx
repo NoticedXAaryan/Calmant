@@ -6,7 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { User, Camera, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SettingsPage() {
   const { data: session, isPending } = useSession();
@@ -39,7 +39,7 @@ export default function SettingsPage() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function SettingsPage() {
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } catch (err: any) {
-        setError(err.message || "Failed to upload image");
+        setError(err instanceof Error ? err.message : "Failed to upload image");
       } finally {
         setLoading(false);
       }

@@ -5,15 +5,87 @@ import { prisma } from "./prisma";
 import { z } from "zod";
 import { createGroq } from "@ai-sdk/groq";
 
+// --- Tool execution context ---
+// We encode both AgentRun id and userId into Mastra's runId to support tracking.
+
+type ToolRunContext = any;
+
+function getContextIds(ctx: ToolRunContext): { runId: string; userId: string } {
+  const combined = ctx.runId;
+  if (!combined) throw new Error("Missing context ids in tool context");
+  
+  const parts = combined.split("|");
+  if (parts.length === 2) {
+    return { runId: parts[0], userId: parts[1] };
+  }
+  
+  // Fallback if just userId is passed
+  return { runId: combined, userId: combined };
+}
+
+function requireUserId(ctx: ToolRunContext): string {
+  return getContextIds(ctx).userId;
+}
+
+// --- Audit Wrapper ---
+function withAudit<T, R>(
+  toolName: string,
+  executeFn: (data: T, ctx: ToolRunContext) => Promise<R>
+) {
+  return async (data: T, ctx: ToolRunContext) => {
+    const { runId, userId } = getContextIds(ctx);
+    let toolCallId: string | undefined;
+
+    if (runId !== userId) {
+      const tc = await prisma.toolCall.create({
+        data: {
+          runId,
+          toolName,
+          args: data as any,
+          status: "pending",
+        },
+      });
+      toolCallId = tc.id;
+    }
+
+    try {
+      const result = await executeFn(data, ctx);
+      
+      if (toolCallId) {
+        await prisma.toolCall.update({
+          where: { id: toolCallId },
+          data: { 
+            status: "completed", 
+            result: result as any, 
+            completedAt: new Date() 
+          },
+        });
+      }
+      return result;
+    } catch (err: any) {
+      if (toolCallId) {
+        await prisma.toolCall.update({
+          where: { id: toolCallId },
+          data: { 
+            status: "failed", 
+            result: { error: err instanceof Error ? err.message : String(err) }, 
+            completedAt: new Date() 
+          },
+        });
+      }
+      throw err;
+    }
+  };
+}
+
 // --- Tools ---
 
 const getTasksTool = createTool({
   id: "get_tasks",
   description: "Fetch the user's current tasks, sorted by urgency score.",
   inputSchema: z.object({ limit: z.number().optional() }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("get_tasks", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     const tasks = await prisma.task.findMany({
       where:   { userId, status: { in: ["PENDING", "IN_PROGRESS"] } },
@@ -27,14 +99,14 @@ const getTasksTool = createTool({
       entropyScore: t.entropyScore,
       subtasks: t.subtasks.map((s) => s.title),
     }));
-  },
+  }),
 });
 
 const decomposeTaskTool = createTool({
   id: "decompose_task",
   description: "Break a task into concrete subtasks and persist them.",
   inputSchema: z.object({ taskId: z.string() }),
-  execute: async (data, { context }: any) => {
+  execute: withAudit("decompose_task", async (data, ctx: ToolRunContext) => {
     const task = await prisma.task.findUniqueOrThrow({ where: { id: data.taskId } });
     
     const prompt = `Break this task into 3-5 concrete steps. Return ONLY valid JSON.
@@ -64,16 +136,15 @@ Task: "${task.title}" — due ${task.deadline.toISOString()}`;
       })),
     });
     return { decomposed: parsed.subtasks.length, taskId: task.id };
-  },
+  }),
 });
 
 const markDoneTool = createTool({
   id: "mark_done",
   description: "Mark a task as completed by fuzzy-matching its title.",
   inputSchema: z.object({ query: z.string() }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("mark_done", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     const tasks = await prisma.task.findMany({
       where: { userId, status: { in: ["PENDING", "IN_PROGRESS"] } },
@@ -88,7 +159,7 @@ const markDoneTool = createTool({
       data:  { status: "DONE", completedAt: new Date() },
     });
     return { done: match.title };
-  },
+  }),
 });
 
 const draftTaskTool = createTool({
@@ -99,9 +170,8 @@ const draftTaskTool = createTool({
     deadline: z.string().describe("ISO datetime string"),
     estimatedMins: z.number().optional(),
   }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("draft_task", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     const task = await prisma.task.create({
       data: {
@@ -116,16 +186,15 @@ const draftTaskTool = createTool({
       message: `Drafted: "${task.title}" for ${task.deadline.toLocaleString()}. Please ask the user to reply 'yes' to confirm.`,
       taskId: task.id,
     };
-  },
+  }),
 });
 
 const confirmTaskTool = createTool({
   id: "confirm_task",
   description: "Confirms a DRAFT task and moves it to PENDING.",
   inputSchema: z.object({ taskId: z.string().optional() }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("confirm_task", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     let idToConfirm = data.taskId;
     
@@ -144,29 +213,28 @@ const confirmTaskTool = createTool({
     });
     
     return { confirmed: task.title, status: task.status };
-  },
+  }),
 });
 
 const checkCalendarTool = createTool({
   id: "check_calendar",
   description: "Check the user's Google Calendar for upcoming events to avoid scheduling conflicts.",
   inputSchema: z.object({ limit: z.number().optional() }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("check_calendar", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     try {
       const { getUpcomingEvents } = await import("./calendar");
       const events = await getUpcomingEvents(userId, data.limit || 5);
       return events.map((e: any) => ({
-        summary: e.summary,
-        start: e.start.dateTime || e.start.date,
-        end: e.end.dateTime || e.end.date,
+        summary: e.summary || "Busy",
+        start: e.start?.dateTime || e.start?.date,
+        end: e.end?.dateTime || e.end?.date,
       }));
     } catch (error: any) {
-      return { error: error.message || "Failed to fetch calendar." };
+      return { error: error instanceof Error ? error.message : "Failed to fetch calendar." };
     }
-  },
+  }),
 });
 
 const scheduleMeetingTool = createTool({
@@ -178,9 +246,8 @@ const scheduleMeetingTool = createTool({
     durationMins: z.number().optional().describe("Duration in minutes, defaults to 30"),
     attendee: z.string().optional().describe("Name of the person to meet with"),
   }),
-  execute: async (data, { runId }: any) => {
-    const userId = runId as string;
-    if (!userId) throw new Error("Missing userId (runId) in context");
+  execute: withAudit("schedule_meeting", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
 
     const duration = data.durationMins || 30;
     const startDate = new Date(data.startTime);
@@ -198,13 +265,14 @@ const scheduleMeetingTool = createTool({
     });
 
     // Try to add to Google Calendar
-    let calendarResult = null;
+    let calendarResult: { id?: string } | null = null;
     try {
-      const { addEventToCalendar } = await import("./calendar");
-      calendarResult = await addEventToCalendar(userId, data.title, startDate, duration);
+      const { scheduleTaskOnCalendar } = await import("./calendar");
+      const event = await scheduleTaskOnCalendar(userId, task);
+      calendarResult = event ? { id: event.eventId ?? undefined } : null;
     } catch (error: any) {
       // Calendar integration might not be set up — that's okay
-      console.warn("Calendar integration not available:", error.message);
+      console.warn("Calendar integration not available:", error instanceof Error ? error.message : String(error));
     }
 
     const timeStr = startDate.toLocaleString("en-US", {
@@ -223,7 +291,79 @@ const scheduleMeetingTool = createTool({
       startTime: startDate.toISOString(),
       endTime: endDate.toISOString(),
     };
-  },
+  }),
+});
+
+import * as cheerio from "cheerio";
+
+const delegateOpportunityTool = createTool({
+  id: "delegate_opportunity",
+  description: "Extracts information from a URL (like a hackathon or event page) and creates a long-running Delegated Task for the user, mapping out the requirements and dates.",
+  inputSchema: z.object({
+    url: z.string().url().describe("The URL to extract information from"),
+  }),
+  execute: withAudit("delegate_opportunity", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
+
+    let html = "";
+    try {
+      const res = await fetch(data.url);
+      html = await res.text();
+    } catch (err) {
+      return { error: "Failed to fetch URL." };
+    }
+
+    const $ = cheerio.load(html);
+    $("script, style, nav, footer, iframe, img, svg").remove();
+    const textContent = $("body").text().replace(/\s+/g, " ").trim().slice(0, 15000); // Send up to 15k chars to LLM
+
+    const prompt = `Extract the key details of this opportunity/event into JSON.
+Return ONLY valid JSON.
+Schema: { "title": "...", "deadline": "YYYY-MM-DD", "requirements": ["..."], "suggested_subtasks": ["..."] }
+Source Text:
+${textContent}`;
+
+    const llmRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
+    });
+    
+    if (!llmRes.ok) {
+      return { error: "Failed to process content with LLM." };
+    }
+
+    const resultData = await llmRes.json();
+    const text = resultData.choices[0].message.content;
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+
+    const delegatedTask = await prisma.delegatedTask.create({
+      data: {
+        userId,
+        title: parsed.title || "Unknown Opportunity",
+        context: {
+          url: data.url,
+          deadline: parsed.deadline,
+          requirements: parsed.requirements,
+          subtasks: parsed.suggested_subtasks,
+        },
+        status: "active",
+      }
+    });
+
+    return {
+      message: `I've extracted the details for "${parsed.title}" and created a delegated task to track it.`,
+      delegatedTaskId: delegatedTask.id,
+      extracted: parsed,
+    };
+  }),
 });
 
 // --- Agent ---
@@ -241,6 +381,7 @@ Your personality:
 
 Your capabilities and rules:
 - When the user mentions a meeting, call, appointment, catch-up, sync, or anything that sounds like a scheduled event, use 'schedule_meeting' immediately. Extract the title, time, and duration from their message. If duration isn't specified, default to 30 minutes.
+- When the user shares a link to a hackathon, event, or opportunity and wants to track or register for it, use 'delegate_opportunity' with the URL.
 - When the user wants to add/create a task, use 'draft_task' and tell them to reply 'yes' to confirm.
 - When the user replies 'yes', 'confirm', 'go ahead', 'do it', or similar affirmations, use 'confirm_task'.
 - When the user says "plan X" or asks to break down a task, call 'decompose_task'.
@@ -253,7 +394,7 @@ Response style:
 - After completing an action, offer a natural follow-up: "That's booked. Want me to check if you have any conflicts?"
 - Use emoji sparingly but effectively (✅ for confirmations, 📅 for calendar, ⏰ for reminders)
 - Never use markdown headers or bullet lists unless the user asks for a summary of multiple items.`,
-  // @ts-expect-error Mastra currently types AI SDK models through v3, while @ai-sdk/groq returns a v4 model.
+  // @ts-expect-error mock Mastra currently types AI SDK models through v3, while @ai-sdk/groq returns a v4 model.
   model: createGroq({ apiKey: process.env.GROQ_API_KEY })("llama-3.3-70b-versatile"),
   tools: { 
     get_tasks: getTasksTool, 
@@ -263,6 +404,7 @@ Response style:
     confirm_task: confirmTaskTool,
     check_calendar: checkCalendarTool,
     schedule_meeting: scheduleMeetingTool,
+    delegate_opportunity: delegateOpportunityTool,
   },
 });
 
@@ -273,11 +415,24 @@ export const mastra = new Mastra({
 export async function agentReply(message: string, userId: string): Promise<string> {
   const agent = mastra.getAgent("lifeSaverAgent");
 
+  const run = await prisma.agentRun.create({
+    data: {
+      userId,
+      prompt: message,
+      status: "running"
+    }
+  });
+
   try {
     const result = await agent.generate(message, {
-      runId: userId,
+      runId: `${run.id}|${userId}`,
     });
     
+    await prisma.agentRun.update({
+      where: { id: run.id },
+      data: { response: result.text, status: "completed" }
+    });
+
     // Store interaction in AgentMemory for future personalization
     await prisma.agentMemory.create({
       data: {
@@ -289,7 +444,13 @@ export async function agentReply(message: string, userId: string): Promise<strin
     
     return result.text;
   } catch (err: any) {
-    if (err?.status === 429 || err?.message?.includes("429")) {
+    await prisma.agentRun.update({
+      where: { id: run.id },
+      data: { status: "failed" }
+    }).catch(() => {});
+    
+    const e = err as { status?: number; message?: string };
+    if (e?.status === 429 || e?.message?.includes("429")) {
       return hermesChat(message);
     }
     throw err;
@@ -307,7 +468,7 @@ async function hermesChat(prompt: string): Promise<string> {
     if (!res.ok) return "AI temporarily unavailable. Try again in a moment.";
     const data = await res.json();
     return data.response;
-  } catch (e) {
+  } catch {
     return "AI temporarily unavailable. Try again in a moment.";
   }
 }

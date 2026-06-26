@@ -1,11 +1,50 @@
-// Redis and BullMQ have been disabled to prevent ECONNREFUSED crashes
-// when running locally without a Redis instance.
+import { prisma } from './prisma';
 
-export const connection = null;
-export const entropyQueue = null;
-export const scanQueue = null;
-export const briefQueue = null;
+/**
+ * Enqueue a new background job.
+ */
+export async function enqueueJob(
+  name: string,
+  payload: any,
+  runAt: Date = new Date()
+) {
+  return await prisma.backgroundJob.create({
+    data: {
+      name,
+      payload,
+      runAt,
+      status: 'queued',
+    }
+  });
+}
 
+/**
+ * Register repeating jobs if they don't already exist.
+ * This should be called on startup.
+ */
 export async function registerRepeatingJobs() {
-  console.log("[BullMQ] Background jobs are disabled in this environment.");
+  console.log('[Queue] Registering repeating jobs in Prisma DB queue...');
+
+  const jobs = [
+    { name: 'due-notification-sender', intervalMinutes: 1 },
+    { name: 'entropy-refresh', intervalMinutes: 15 },
+    { name: 'morning-briefing', intervalMinutes: 60 },
+    { name: 'evening-review', intervalMinutes: 60 },
+    { name: 'provider-health-probe', intervalMinutes: 10 },
+  ];
+
+  for (const job of jobs) {
+    // Check if the job already exists and is pending/processing
+    const existing = await prisma.backgroundJob.findFirst({
+      where: {
+        name: job.name,
+        status: { in: ['queued', 'processing'] }
+      }
+    });
+
+    if (!existing) {
+      await enqueueJob(job.name, { intervalMinutes: job.intervalMinutes }, new Date(Date.now() + 1000));
+      console.log(`[Queue] Registered repeating job: ${job.name}`);
+    }
+  }
 }

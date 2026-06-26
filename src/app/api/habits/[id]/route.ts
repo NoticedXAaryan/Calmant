@@ -24,7 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Only toggleDate is supported currently via HabitService' }, { status: 400 });
   } catch (error: any) {
     console.error('[PATCH /api/habits/[id]]', error);
-    if (error.message === 'Habit not found') {
+    if (error instanceof Error && error.message === 'Habit not found') {
       return NextResponse.json({ error: 'Habit not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Failed to update habit' }, { status: 500 });
@@ -43,7 +43,7 @@ export async function DELETE(
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
     console.error('[DELETE /api/habits/[id]]', error);
-    if (error.message === 'Habit not found') {
+    if (error instanceof Error && error.message === 'Habit not found') {
       return NextResponse.json({ error: 'Habit not found' }, { status: 404 });
     }
     return NextResponse.json({ error: 'Failed to delete habit' }, { status: 500 });

@@ -49,16 +49,31 @@ export async function POST(request: Request) {
     const message = messages[0];
     const senderPhone = message.from; // Phone number of the user sending the message
 
-    // Find the primary user (single-tenant assumption for hackathon)
-    const user = await prisma.user.findFirst();
-    if (!user) {
-      console.error("[WhatsApp Meta] No user found in database.");
-      return NextResponse.json({ error: 'No user' }, { status: 200 }); // Always return 200 to Meta
+    // Find the user associated with this phone number
+    const connection = await prisma.integrationConnection.findFirst({
+      where: {
+        provider: 'whatsapp',
+        externalId: senderPhone,
+        status: 'live_verified',
+      }
+    });
+
+    if (!connection) {
+      console.warn(`[WhatsApp Meta] Unregistered sender: ${senderPhone}`);
+      // Send a setup message and exit
+      sendWhatsAppMessage(
+        senderPhone, 
+        "Hi! This phone number isn't connected to a Calmant account yet. Please go to your dashboard settings to connect WhatsApp."
+      ).catch((err) => console.error("[WhatsApp Meta] Failed to send unlinked message:", err));
+      
+      return NextResponse.json({ status: 'ignored' }, { status: 200 }); 
     }
+
+    const userId = connection.userId;
 
     // Process the message asynchronously so we don't block the webhook response
     // Meta requires a 200 OK within 3 seconds, or it will retry.
-    processMessage(message, senderPhone, user.id).catch((err) => {
+    processMessage(message, senderPhone, userId).catch((err) => {
       console.error("[WhatsApp Meta] Error processing message async:", err);
     });
 
@@ -71,16 +86,20 @@ export async function POST(request: Request) {
   }
 }
 
-async function processMessage(message: any, senderPhone: string, userId: string) {
+async function processMessage(message: { type: string; text?: { body: string }; audio?: { id: string } }, senderPhone: string, userId: string) {
   let text = "";
 
   if (message.type === 'text') {
-    text = message.text.body;
+    text = message.text?.body || "";
   } else if (message.type === 'audio') {
     // It's a voice note!
     await sendWhatsAppMessage(senderPhone, "🎤 _Transcribing voice note..._");
     
-    const mediaId = message.audio.id;
+    const mediaId = message.audio?.id;
+    if (!mediaId) {
+      await sendWhatsAppMessage(senderPhone, "Sorry, I couldn't access the audio file.");
+      return;
+    }
     const audioBuffer = await downloadWhatsAppMedia(mediaId);
     
     text = await transcribeAudio(audioBuffer);

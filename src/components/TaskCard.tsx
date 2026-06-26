@@ -139,7 +139,7 @@ export default function TaskCard({
           )}
 
           <DropdownMenu>
-            {/* @ts-ignore */}
+            {/* @ts-expect-error mock Radix UI DropdownMenuTrigger type conflict */}
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-white/50 hover:text-white">
                 <MoreHorizontal size={18} />

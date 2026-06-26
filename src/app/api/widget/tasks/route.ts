@@ -1,7 +1,7 @@
 // Widget API — Lightweight JSON endpoint for mobile widgets
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getUserId } from '@/lib/auth-utils';
+// Removed getUserId
 
 function getTimeLeft(deadline: Date): string {
   const diff = deadline.getTime() - Date.now();
@@ -13,16 +13,25 @@ function getTimeLeft(deadline: Date): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserId(true);
-    
-    // Auth check (optional — only enforced if WIDGET_API_KEY is set)
-    const apiKey = process.env.WIDGET_API_KEY;
-    if (apiKey) {
-      const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
-      if (authHeader !== apiKey) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    // Authenticate via WIDGET token
+    const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized - Missing token' }, { status: 401 });
     }
+
+    const connection = await prisma.integrationConnection.findFirst({
+      where: {
+        provider: 'widget',
+        externalId: authHeader,
+        status: 'connected',
+      }
+    });
+
+    if (!connection) {
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
+    }
+
+    const userId = connection.userId;
 
     const tasks = await prisma.task.findMany({
       where: { userId, status: { in: ['PENDING', 'IN_PROGRESS'] } },

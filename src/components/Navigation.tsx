@@ -15,18 +15,27 @@ import {
   User,
   Zap,
   MessageSquare,
+  Brain,
+  FolderGit2,
+  Activity,
+  History,
 } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
+import { WorkerStatus } from "./WorkerStatus";
 
 const navItems = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },
   { href: "/dashboard/habits", label: "Habits", icon: Target },
   { href: "/dashboard/assistant", label: "Assistant", icon: MessageSquare },
+  { href: "/dashboard/assistant/memory", label: "Memory", icon: Brain },
+  { href: "/dashboard/assistant/delegated", label: "Delegated", icon: FolderGit2 },
   { href: "/dashboard/integrations", label: "Integrations", icon: Zap },
+  { href: "/dashboard/notifications", label: "Notifications", icon: History },
+  { href: "/dashboard/automations", label: "Automations", icon: Activity },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
@@ -139,6 +148,9 @@ export default function Navigation() {
           <div className="flex items-center justify-between px-2">
             <span className="text-xs text-muted-foreground">Theme</span>
             <ThemeToggle />
+          </div>
+          <div className="px-1 mt-1 border-t border-border/50 pt-2">
+            <WorkerStatus />
           </div>
           <UserProfile />
         </div>

@@ -13,7 +13,6 @@ function getResendClient(): Resend | null {
 }
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Life Saver <onboarding@resend.dev>";
-const USER_EMAIL = process.env.USER_EMAIL || "";
 
 let emailsSentToday = 0;
 let lastResetDate = new Date().toDateString();
@@ -41,14 +40,14 @@ export interface EmailTask {
 }
 
 export function isEmailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && USER_EMAIL);
+  return Boolean(process.env.RESEND_API_KEY);
 }
 
-export async function sendEmail(subject: string, html: string, to?: string): Promise<EmailResult> {
-  const recipient = to || USER_EMAIL;
+export async function sendEmail(subject: string, html: string, to: string): Promise<EmailResult> {
+  const recipient = to;
 
   if (!recipient) {
-    return { sent: false, reason: "No recipient email configured. Set USER_EMAIL." };
+    return { sent: false, reason: "No recipient email provided." };
   }
 
   const resend = getResendClient();

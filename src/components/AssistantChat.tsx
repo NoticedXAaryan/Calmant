@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowUp } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceInput from "./VoiceInput";
 
@@ -66,6 +66,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     setMessages(loadHistory());
   }, []);

@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserId(true);
+    const userId = await getUserId();
     const body = await req.json();
     const { type, notificationId } = body;
 
@@ -61,25 +61,40 @@ export async function POST(req: NextRequest) {
 
     // Handle send-test
     if (type === 'test') {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user?.email) {
+         return respond({ sent: false, reason: 'User email not found' });
+      }
+
       if (!isEmailConfigured()) {
         return respond({
           sent: false,
-          reason: 'Email not configured. Set RESEND_API_KEY and USER_EMAIL environment variables.',
+          reason: 'Email not configured. Set RESEND_API_KEY.',
         });
       }
 
-      const result = await sendEmail(
+      const { dispatchDurableNotification } = await import('@/lib/notifications');
+      const result = await dispatchDurableNotification(
+        userId,
+        null,
+        'test',
         'Test Email - Life Saver is Connected',
         `<div style="font-family:Inter,system-ui;padding:20px;background:#18181b;border-radius:12px;border:1px solid #27272a;">
           <h2 style="color:#f1f5f9;margin:0 0 12px;">Email Connected</h2>
           <p style="color:#94a3b8;margin:0;">Your Last-Minute Life Saver is now connected to email notifications via Resend.</p>
-        </div>`
+        </div>`,
+        user.email
       );
       return respond(result);
     }
 
     // Handle critical alert
     if (type === 'critical') {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user?.email) {
+         return respond({ sent: false, reason: 'User email not found' });
+      }
+
       const tasks = await prisma.task.findMany({ where: { userId, status: { in: ['PENDING', 'IN_PROGRESS'] } } });
       const critical = tasks.filter((task) => task.entropyScore >= 0.7);
 
@@ -87,9 +102,10 @@ export async function POST(req: NextRequest) {
         return respond({ sent: false, reason: 'No critical tasks found' });
       }
 
-      const { subject, html } = criticalAlertEmail(critical);
-      const result = await sendEmail(subject, html);
-      return respond(result);
+      const { notifyCriticalTasks } = await import('@/lib/notifications');
+      const results = await notifyCriticalTasks(userId, critical as any, user.email);
+      const emailResult = results.find(r => r.channel === 'email') || results[0];
+      return respond(emailResult);
     }
 
     return respondError('Invalid type. Use: test, critical, mark-read, mark-all-read', 400);

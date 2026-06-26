@@ -1,60 +1,49 @@
 import { NextResponse } from "next/server";
-import { isEmailConfigured } from "@/lib/email";
-import { getNotificationStatus } from "@/lib/notifications";
 import { getSessionUser } from "@/lib/auth-utils";
-import { prisma } from "@/lib/prisma";
-import { getTelegramStatus } from "@/lib/telegram";
+import { getNotificationStatus } from "@/lib/notifications";
+import {
+  checkEmailHealth,
+  checkGoogleCalendarHealth,
+  checkTelegramHealth,
+  checkWhatsAppHealth,
+  checkInAppHealth
+} from "@/lib/integration-health";
 
 export async function GET() {
-  const notifications = getNotificationStatus();
-  const whatsappConfigured = Boolean(
-    process.env.WHATSAPP_ACCESS_TOKEN &&
-    process.env.WHATSAPP_PHONE_ID &&
-    process.env.WHATSAPP_VERIFY_TOKEN
-  );
-  const googleConfigured = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   const sessionUser = await getSessionUser();
-  const googleAccount = sessionUser
-    ? await prisma.account.findFirst({
-        where: { userId: sessionUser.id, providerId: "google" },
-        select: { id: true, scope: true, accessToken: true, refreshToken: true },
-      })
-    : null;
-  const calendarScopes = googleAccount?.scope?.includes("calendar") ?? false;
-  const calendarLinked = Boolean(googleAccount?.accessToken && calendarScopes);
-  const telegram = getTelegramStatus();
+  const userId = sessionUser?.id;
+
+  const emailHealth = await checkEmailHealth(userId);
+  const calendarHealth = await checkGoogleCalendarHealth(userId);
+  const telegramHealth = await checkTelegramHealth(userId);
+  const whatsappHealth = await checkWhatsAppHealth(userId);
+  const inAppHealth = checkInAppHealth();
+
+  const notifications = getNotificationStatus();
 
   return NextResponse.json({
     success: true,
     data: {
       email: {
-        configured: isEmailConfigured(),
+        provider: "email",
+        ...emailHealth,
         unreadCount: notifications.unreadCount,
       },
       telegram: {
-        configured: telegram.configured,
-        running: telegram.running,
-        startedAt: telegram.startedAt,
-        userLinked: telegram.userLinked,
-        label: telegram.label,
+        provider: "telegram",
+        ...telegramHealth,
       },
       googleCalendar: {
-        configured: googleConfigured,
-        linked: calendarLinked,
-        label: !googleConfigured
-          ? "OAuth setup needed"
-          : calendarLinked
-            ? "Connected"
-            : sessionUser
-              ? "Sign in with Google to connect"
-              : "Sign in to check",
+        provider: "google_calendar",
+        ...calendarHealth,
       },
       whatsapp: {
-        configured: whatsappConfigured,
-        label: whatsappConfigured ? "Webhook configured" : "Admin setup needed",
+        provider: "whatsapp",
+        ...whatsappHealth,
       },
       inApp: {
-        configured: true,
+        provider: "in_app",
+        ...inAppHealth,
         unreadCount: notifications.unreadCount,
         queueSize: notifications.inAppQueueSize,
       },

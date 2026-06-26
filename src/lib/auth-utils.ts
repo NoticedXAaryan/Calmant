@@ -8,7 +8,7 @@ import { headers } from "next/headers";
  * Throws AuthError (401) for authenticated endpoints.
  * Pass fallbackAllowed=true for cron/webhook endpoints.
  */
-export async function getUserId(fallbackAllowed = false): Promise<string> {
+export async function getUserId(): Promise<string> {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -21,10 +21,7 @@ export async function getUserId(fallbackAllowed = false): Promise<string> {
     // Session check failed (e.g., during build or cron context)
   }
 
-  if (fallbackAllowed) {
-    return "demo-user";
-  }
-
+  // We no longer fallback to demo-user. All routes must have a valid session or token.
   throw new AuthError("Unauthorized — please sign in");
 }
 

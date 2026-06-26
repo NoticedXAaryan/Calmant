@@ -2,14 +2,14 @@
 // Escalation ladder: In-app toast → Email (Resend)
 // Replaces the WhatsApp/SMS notification system from the original spec.
 
-import { sendEmail, criticalAlertEmail, isEmailConfigured, type EmailResult } from './email';
+import { sendEmail, criticalAlertEmail, isEmailConfigured } from './email';
 import type { Task } from './types';
 import { getEntropyLevel } from './entropy';
 
 // --- Types ---
 
 export interface NotificationResult {
-  channel: 'in-app' | 'email';
+  channel: 'in-app' | 'email' | 'telegram';
   sent: boolean;
   reason?: string;
   emailId?: string;
@@ -74,14 +74,19 @@ function pushInApp(type: NotificationType, title: string, message: string, taskI
 
 // --- Notification Dispatcher ---
 
+import { prisma } from './prisma';
+import { evaluateAlertPolicy } from './alert-policy';
+
 /**
  * Send critical task alert through all configured channels.
  * Escalation: Always adds in-app, also sends email if configured.
  */
-export async function notifyCriticalTasks(tasks: Task[]): Promise<NotificationResult[]> {
+export async function notifyCriticalTasks(userId: string, tasks: Task[], userEmail?: string): Promise<NotificationResult[]> {
   const results: NotificationResult[] = [];
 
   if (tasks.length === 0) return results;
+
+  const topTask = tasks[0];
 
   // Level 0: In-app notification (always)
   const taskNames = tasks.slice(0, 3).map(t => t.title).join(', ');
@@ -89,14 +94,69 @@ export async function notifyCriticalTasks(tasks: Task[]): Promise<NotificationRe
     'critical',
     `🔴 ${tasks.length} critical task${tasks.length > 1 ? 's' : ''}`,
     `Urgent: ${taskNames}${tasks.length > 3 ? ` and ${tasks.length - 3} more` : ''}`,
-    tasks[0]?.id
+    topTask?.id
   );
   results.push({ channel: 'in-app', sent: true });
 
-  // Level 1: Email (if configured)
-  if (isEmailConfigured()) {
+  // Level 1: Telegram (if configured and linked)
+  let telegramSent = false;
+  try {
+    const { sendTelegramMessage } = await import('./telegram');
+    const message = `🔴 Urgent: ${tasks.length} critical task(s)\n${taskNames}`;
+    telegramSent = await sendTelegramMessage(userId, message);
+    if (telegramSent) {
+      await prisma.notificationDelivery.create({
+        data: {
+          userId,
+          taskId: topTask?.id,
+          channel: 'telegram',
+          intent: 'critical',
+          status: 'sent',
+          sentAt: new Date(),
+        }
+      });
+      results.push({ channel: 'telegram', sent: true });
+    }
+  } catch (err) {
+    console.error("[Notification] Telegram dispatch failed:", err);
+  }
+
+  // Level 2: Email (if Telegram failed or not configured)
+  if (!telegramSent && isEmailConfigured() && userEmail) {
+    const policyResult = await evaluateAlertPolicy(userId, topTask as any, 'email');
+
+    if (!policyResult.allowed) {
+      console.log(`[Notification] Email skipped for user ${userId}: ${policyResult.reason}`);
+      results.push({ channel: 'email', sent: false, reason: policyResult.reason });
+      return results;
+    }
+
     const { subject, html } = criticalAlertEmail(tasks);
-    const emailResult = await sendEmail(subject, html);
+
+    // Create durable record
+    const delivery = await prisma.notificationDelivery.create({
+      data: {
+        userId,
+        taskId: topTask?.id,
+        channel: 'email',
+        intent: 'critical',
+        status: 'queued',
+      }
+    });
+
+    const emailResult = await sendEmail(subject, html, userEmail);
+
+    // Update durable record
+    await prisma.notificationDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: emailResult.sent ? 'sent' : 'failed',
+        error: emailResult.reason,
+        sentAt: emailResult.sent ? new Date() : null,
+        providerId: emailResult.id,
+      }
+    });
+
     results.push({
       channel: 'email',
       sent: emailResult.sent,
@@ -121,6 +181,83 @@ export async function notifyTaskEvent(
 
   pushInApp(type, `${emoji} ${task.title}`, message, task.id);
   return { channel: 'in-app', sent: true };
+}
+
+
+
+export async function dispatchDurableNotification(
+  userId: string,
+  taskId: string | null,
+  intent: string,
+  subject: string,
+  html: string,
+  userEmail: string
+): Promise<NotificationResult> {
+  const policyResult = await evaluateAlertPolicy(
+    userId,
+    { id: taskId, entropyScore: 0 } as any, // Mock task for policy if not available, can be improved
+    'email'
+  );
+
+  if (!policyResult.allowed) {
+    return { channel: 'email', sent: false, reason: policyResult.reason };
+  }
+
+  // Level 1: Telegram
+  let telegramSent = false;
+  try {
+    const { sendTelegramMessage } = await import('./telegram');
+    // Extract plain text from HTML (very basic)
+    const plainText = html.replace(/<[^>]+>/g, '\n').replace(/\n\s*\n/g, '\n').trim();
+    const message = `*${subject}*\n${plainText}`;
+    telegramSent = await sendTelegramMessage(userId, message);
+    
+    if (telegramSent) {
+      await prisma.notificationDelivery.create({
+        data: {
+          userId,
+          taskId,
+          channel: 'telegram',
+          intent,
+          status: 'sent',
+          sentAt: new Date(),
+        }
+      });
+      return { channel: 'telegram', sent: true };
+    }
+  } catch (err) {
+    console.error("[Notification] Telegram durable dispatch failed:", err);
+  }
+
+  // Level 2: Email
+  const delivery = await prisma.notificationDelivery.create({
+    data: {
+      userId,
+      taskId,
+      channel: 'email',
+      intent,
+      status: 'queued',
+    }
+  });
+
+  const emailResult = await sendEmail(subject, html, userEmail);
+
+  await prisma.notificationDelivery.update({
+    where: { id: delivery.id },
+    data: {
+      status: emailResult.sent ? 'sent' : 'failed',
+      error: emailResult.reason,
+      sentAt: emailResult.sent ? new Date() : null,
+      providerId: emailResult.id,
+    }
+  });
+
+  return {
+    channel: 'email',
+    sent: emailResult.sent,
+    reason: emailResult.reason,
+    emailId: emailResult.id,
+  };
 }
 
 /**

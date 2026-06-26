@@ -88,7 +88,7 @@ export default function AgentChat() {
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground">
                   <Sparkles size={32} className="mb-3 opacity-30" />
-                  <p>Hi! I'm your Life Saver agent.</p>
+                  <p>Hi! I&apos;m your Life Saver agent.</p>
                   <p className="mt-1">Ask me to help with your tasks, deadlines, or schedule.</p>
                 </div>
               )}
