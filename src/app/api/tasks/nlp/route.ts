@@ -8,7 +8,6 @@ import {
   parseTaskCommandFallback,
   type ParsedTaskCommand,
 } from "@/lib/task-planning";
-import Groq from "groq-sdk";
 
 interface ConfirmedDraft {
   title: string;
@@ -18,11 +17,10 @@ interface ConfirmedDraft {
   description?: string;
 }
 
-async function parseWithGroq(command: string): Promise<ParsedTaskCommand | null> {
-  if (!process.env.GROQ_API_KEY) return null;
+async function parseWithOpenRouter(command: string): Promise<ParsedTaskCommand | null> {
+  if (!process.env.OPENROUTER_API_KEY) return null;
 
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     const prompt = `Extract a task from the user's natural language command.
 Return only valid JSON.
@@ -45,13 +43,21 @@ Rules:
 
 Command: "${command}"`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" },
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "openrouter/free",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
     });
 
-    const text = chatCompletion.choices[0].message.content || "{}";
+    const resultData = await res.json();
+    const text = resultData?.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(text);
 
     if (!parsed.title || !parsed.deadline) return null;
@@ -145,7 +151,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Command is required" }, { status: 400 });
     }
 
-    const parsed = (await parseWithGroq(command)) ?? parseTaskCommandFallback(command);
+    const parsed = (await parseWithOpenRouter(command)) ?? parseTaskCommandFallback(command);
     const analysis = analyzeTaskCommand(command, parsed);
 
     return NextResponse.json({

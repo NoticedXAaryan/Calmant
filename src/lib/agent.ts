@@ -3,7 +3,7 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { prisma } from "./prisma";
 import { z } from "zod";
-import { createGroq } from "@ai-sdk/groq";
+import { createOpenAI } from "@ai-sdk/openai";
 
 // --- Tool execution context ---
 // We encode both AgentRun id and userId into Mastra's runId to support tracking.
@@ -113,14 +113,14 @@ const decomposeTaskTool = createTool({
 Schema: { "subtasks": [{ "title": string }] }
 Task: "${task.title}" — due ${task.deadline.toISOString()}`;
     
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openrouter/free",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" }
       })
@@ -323,14 +323,14 @@ Schema: { "title": "...", "deadline": "YYYY-MM-DD", "requirements": ["..."], "su
 Source Text:
 ${textContent}`;
 
-    const llmRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const llmRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openrouter/free",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" }
       })
@@ -394,8 +394,8 @@ Response style:
 - After completing an action, offer a natural follow-up: "That's booked. Want me to check if you have any conflicts?"
 - Use emoji sparingly but effectively (✅ for confirmations, 📅 for calendar, ⏰ for reminders)
 - Never use markdown headers or bullet lists unless the user asks for a summary of multiple items.`,
-  // @ts-expect-error mock Mastra currently types AI SDK models through v3, while @ai-sdk/groq returns a v4 model.
-  model: createGroq({ apiKey: process.env.GROQ_API_KEY })("llama-3.3-70b-versatile"),
+  // @ts-expect-error mock Mastra currently types AI SDK models through v3, while @ai-sdk/openai returns a v4 model.
+  model: createOpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey: process.env.OPENROUTER_API_KEY })("openrouter/free"),
   tools: { 
     get_tasks: getTasksTool, 
     decompose_task: decomposeTaskTool, 

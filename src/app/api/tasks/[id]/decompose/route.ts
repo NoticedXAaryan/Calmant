@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { fallbackDecomposeTask, type DecomposedSubtask } from "@/lib/task-planning";
 import { TaskService } from "@/services/taskService";
 
-async function decomposeWithGroq(task: {
+async function decomposeWithOpenRouter(task: {
   title: string;
   description: string | null;
   deadline: Date;
   estimatedMins: number | null;
 }): Promise<DecomposedSubtask[] | null> {
-  if (!process.env.GROQ_API_KEY) return null;
+  if (!process.env.OPENROUTER_API_KEY) return null;
 
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const prompt = `Break this task into 3 to 5 concrete next actions.
 Return only valid JSON.
 
@@ -35,13 +33,21 @@ Description: ${task.description || "None"}
 Deadline: ${task.deadline.toISOString()}
 Estimated minutes: ${task.estimatedMins ?? 60}`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "llama-3.3-70b-versatile",
-      response_format: { type: "json_object" },
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "openrouter/free",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      })
     });
-
-    const text = chatCompletion.choices[0].message.content || "{}";
+    
+    const resultData = await res.json();
+    const text = resultData?.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed.subtasks)) return null;
 
@@ -72,7 +78,7 @@ export async function POST(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const subtasks = (await decomposeWithGroq(task)) ?? fallbackDecomposeTask(task);
+    const subtasks = (await decomposeWithOpenRouter(task)) ?? fallbackDecomposeTask(task);
 
     await prisma.$transaction([
       prisma.subtask.deleteMany({ where: { taskId: task.id } }),
