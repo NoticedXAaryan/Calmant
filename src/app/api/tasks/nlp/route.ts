@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+
+export const maxDuration = 60; // Set max duration to 60s for Vercel Hobby tier
 import { prisma } from "@/lib/prisma";
 import { calculateEntropy } from "@/lib/entropy";
 import { isEmailConfigured, sendEmail } from "@/lib/email";

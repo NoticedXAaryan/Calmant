@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
+export const maxDuration = 60; // Set max duration to 60s for Vercel Hobby tier
 import { getUserId } from "@/lib/auth-utils";
 import { fallbackDecomposeTask, type DecomposedSubtask } from "@/lib/task-planning";
 import { TaskService } from "@/services/taskService";
