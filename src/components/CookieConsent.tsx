@@ -13,32 +13,36 @@ export function CookieConsent() {
     }
   }, []);
 
-  const handleAccept = () => {
-    localStorage.setItem("cookie_consent", "accepted");
+  const handleAcceptAll = () => {
+    localStorage.setItem("cookie_consent", "all");
     setShow(false);
   };
 
-  const handleDecline = () => {
-    localStorage.setItem("cookie_consent", "declined");
+  const handleAcceptNecessary = () => {
+    localStorage.setItem("cookie_consent", "necessary");
     setShow(false);
   };
 
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 bg-card border-t border-border shadow-lg">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-sm text-muted-foreground flex-1">
-          We use cookies to improve your experience and analyze site usage. By clicking "Accept", you agree to our use of cookies.
-          For more information, see our <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>.
+    <div className="fixed bottom-4 right-4 z-50 w-full max-w-sm p-4 bg-card border border-border shadow-2xl rounded-xl">
+      <div className="flex flex-col gap-4">
+        <div className="space-y-2">
+          <h3 className="font-semibold text-sm">Cookie Preferences</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            We use cookies to improve your experience. You can accept all cookies or only those necessary for the site to function properly. See our <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>.
+          </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
-          <Button variant="outline" onClick={handleDecline} className="flex-1 sm:flex-none">
-            Decline
+        <div className="flex flex-col gap-2">
+          <Button size="sm" onClick={handleAcceptAll} className="w-full">
+            Accept All
           </Button>
-          <Button onClick={handleAccept} className="flex-1 sm:flex-none">
-            Accept
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleAcceptNecessary} className="flex-1">
+              Necessary Only
+            </Button>
+          </div>
         </div>
       </div>
     </div>

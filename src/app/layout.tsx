@@ -3,9 +3,28 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Calmant | Last-Minute Life Saver",
-  description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks.",
-  keywords: ["calmant", "productivity", "AI", "deadlines", "assistant", "scheduling"],
+  description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks. Built for action, not passive reminders.",
+  keywords: ["calmant", "productivity", "AI", "deadlines", "assistant", "scheduling", "task management", "adhd planner"],
   applicationName: "Calmant",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "Calmant | Last-Minute Life Saver",
+    description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks.",
+    url: "https://calmant.app",
+    siteName: "Calmant",
+    images: [
+      {
+        url: "/logo.png",
+        width: 800,
+        height: 600,
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
