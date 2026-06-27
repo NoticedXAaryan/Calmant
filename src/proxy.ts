@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const AUTH_ROUTES = ["/login", "/signup"];
-const PUBLIC_ROUTES = ["/"];
+const PUBLIC_ROUTES = ["/", "/privacy", "/terms"];
 // Routes that are always accessible regardless of auth state
 const ALWAYS_PUBLIC_ROUTES = ["/verify-email"];
 const API_AUTH_PREFIX = "/api/auth";
