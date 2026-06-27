@@ -8,6 +8,7 @@ import {
   Zap, Mail, Lock, User, ArrowRight, Loader2,
   Eye, EyeOff, CheckCircle2, MailCheck,
 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 const PERKS = [
   "Capture tasks by voice or text on WhatsApp or Telegram",
@@ -87,10 +88,7 @@ export default function SignUpPage() {
           style={{ background: "radial-gradient(ellipse 80% 60% at 100% 100%, rgba(255,255,255,0.018) 0%, transparent 60%)" }}
         />
         <Link href="/" className="relative flex items-center gap-2.5 z-10">
-          <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-            <Zap className="w-3.5 h-3.5 text-black" fill="black" />
-          </div>
-          <span className="font-bold tracking-tight">Calmant</span>
+          <Logo imageSize={24} />
         </Link>
         <div className="relative z-10 max-w-xs space-y-8">
           <div>
@@ -127,10 +125,7 @@ export default function SignUpPage() {
               className="w-full max-w-[360px]"
             >
               <Link href="/" className="flex lg:hidden items-center gap-2.5 mb-10">
-                <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-                  <Zap className="w-3.5 h-3.5 text-black" fill="black" />
-                </div>
-                <span className="font-bold tracking-tight">Calmant</span>
+                <Logo imageSize={24} />
               </Link>
 
               <div className="mb-6 w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/[0.09] flex items-center justify-center">
@@ -184,10 +179,7 @@ export default function SignUpPage() {
               className="w-full max-w-[360px]"
             >
               <Link href="/" className="flex lg:hidden items-center gap-2.5 mb-10">
-                <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-                  <Zap className="w-3.5 h-3.5 text-black" fill="black" />
-                </div>
-                <span className="font-bold tracking-tight">Calmant</span>
+                <Logo imageSize={24} />
               </Link>
 
               <h1 className="text-[1.75rem] font-extrabold tracking-tight mb-1.5">Create your account</h1>
@@ -270,9 +262,9 @@ export default function SignUpPage() {
 
               <p className="text-[11px] text-white/15 text-center mt-6 leading-relaxed">
                 By signing up you agree to our{" "}
-                <span className="underline underline-offset-2 hover:text-white/30 cursor-pointer transition-colors">Terms</span>
+                <Link href="/terms" className="underline underline-offset-2 hover:text-white/30 cursor-pointer transition-colors">Terms</Link>
                 {" "}and{" "}
-                <span className="underline underline-offset-2 hover:text-white/30 cursor-pointer transition-colors">Privacy Policy</span>.
+                <Link href="/privacy" className="underline underline-offset-2 hover:text-white/30 cursor-pointer transition-colors">Privacy Policy</Link>.
               </p>
               <p className="text-center text-xs text-white/25 mt-5">
                 Already have an account?{" "}

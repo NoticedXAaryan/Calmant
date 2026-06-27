@@ -22,7 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import { Logo } from "@/components/Logo";
 const stats = [
   { value: "1", label: "next action surfaced" },
   { value: "0", label: "random deadlines saved" },
@@ -213,8 +213,7 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Calmant" width={32} height={32} className="rounded-md" priority />
-            <span className="text-sm font-semibold tracking-tight">Calmant</span>
+            <Logo />
           </Link>
           <div className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <a href="#workflow" className="hover:text-foreground">Workflow</a>
@@ -421,6 +420,8 @@ export default function LandingPage() {
             Built for action, not passive reminders.
           </div>
           <div className="flex gap-4">
+            <Link href="/terms" className="hover:text-foreground">Terms</Link>
+            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link href="/login" className="hover:text-foreground">Sign in</Link>
             <Link href="/signup" className="hover:text-foreground">Get started</Link>
           </div>

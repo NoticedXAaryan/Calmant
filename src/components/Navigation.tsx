@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
 import { WorkerStatus } from "./WorkerStatus";
@@ -106,7 +107,7 @@ export default function Navigation() {
       >
         {/* Logo */}
         <div className="mb-6 flex items-center gap-2.5 px-3 py-2">
-          <span className="text-base font-semibold tracking-tight">Calmant</span>
+          <Logo imageSize={24} />
         </div>
 
         {/* Primary action */}

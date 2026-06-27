@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { CookieConsent } from "@/components/CookieConsent";
 
 // Initialize BullMQ workers
 if (typeof window === "undefined") {
@@ -30,6 +31,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

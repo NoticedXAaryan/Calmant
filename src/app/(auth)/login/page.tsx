@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { signIn, authClient } from "@/lib/auth-client";
 import { Zap, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -75,10 +76,7 @@ export default function LoginPage() {
           style={{ background: "radial-gradient(ellipse 80% 60% at 0% 0%, rgba(255,255,255,0.018) 0%, transparent 60%)" }}
         />
         <Link href="/" className="relative flex items-center gap-2.5 z-10">
-          <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-            <Zap className="w-3.5 h-3.5 text-black" fill="black" />
-          </div>
-          <span className="font-bold tracking-tight">Calmant</span>
+          <Logo imageSize={24} />
         </Link>
         <div className="relative z-10 space-y-6 max-w-xs">
           <blockquote className="space-y-5">
@@ -115,10 +113,7 @@ export default function LoginPage() {
           className="w-full max-w-[360px]"
         >
           <Link href="/" className="flex lg:hidden items-center gap-2.5 mb-10">
-            <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center">
-              <Zap className="w-3.5 h-3.5 text-black" fill="black" />
-            </div>
-            <span className="font-bold tracking-tight">Calmant</span>
+            <Logo imageSize={24} />
           </Link>
 
           <h1 className="text-[1.75rem] font-extrabold tracking-tight mb-1.5">Welcome back</h1>
