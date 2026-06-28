@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { agentReply } from '@/lib/agent';
+import { agentReply } from '@/agents/ceo';
 import { transcribeAudio } from '@/lib/audio';
 import { downloadWhatsAppMedia, sendWhatsAppMessage } from '@/lib/whatsapp-meta';
 

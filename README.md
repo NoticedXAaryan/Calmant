@@ -1,77 +1,69 @@
-# Calmant App
+# Calmant — Your Personal AI Company
 
-This is the active Next.js application for Calmant, a prototype personal execution assistant.
+An autonomous AI company that lives on your phone. Built with **Next.js 15**, **Prisma**, **Mastra**, and **OpenRouter**.
 
-For product and architecture context, start with the root documentation:
+## Architecture
 
-- [docs/README.md](../docs/README.md)
-- [docs/06-RELIABILITY-EXECUTION-PLAN.md](../docs/06-RELIABILITY-EXECUTION-PLAN.md)
+```
+User → CEO Agent → 7 Departments → Knowledge Graph → User
+```
 
-## Current Status
-
-Audit date: 2026-06-26.
-
-| Check | Result |
+| Department | Role |
 |---|---|
-| Build | Passes with `npm run build`. |
-| Prisma schema | Passes with `npx prisma validate`. |
-| Lint | Currently fails and must be fixed before production. |
-| Background jobs | Installed dependencies exist, but repeating jobs are disabled. |
-| Agent storage | Mastra currently warns about in-memory storage during build. |
-| Multi-user readiness | Partial. Core data has `userId`, but several routes/integrations still need hardening. |
+| 📥 Capture | Parse inputs, create tasks, extract from URLs |
+| ⏰ Deadline | Plan, schedule, calendar, decompose work |
+| 📬 Comms | Telegram, email, reminders |
+| 🛟 Recovery | Overdue triage, rescue plans |
+| 🔍 Intel | Memory, research, learnings |
+| 🎨 Creator | Documents, summaries, reports |
+| 🌐 Browser | Web navigation, forms, screenshots |
 
-## Setup
+## Quick Start
 
 ```bash
+# 1. Clone and install
+cd app
+cp .env.example .env   # Fill in your keys
 npm install
-cp .env.example .env.local
-npx prisma generate
-npx prisma validate
+
+# 2. Set up database
+npx prisma db push
+
+# 3. Run dev server
 npm run dev
 ```
 
-Open:
-
-```text
-http://localhost:3000
-```
-
-## Verification
+## Docker
 
 ```bash
-npx prisma validate
-npm run lint
-npm run build
+# Build and run everything (app + browser sandbox)
+docker compose up --build
 ```
 
-At the time of this README update, `npm run lint` fails. See the execution plan for the ordered fix list.
+## Environment Variables
 
-## Important Implementation Notes
+See [.env.example](app/.env.example) for all required and optional variables.
 
-- Do not use `demo-user` behavior in production.
-- Do not route webhooks to the first user in the database.
-- Do not rely on global `USER_EMAIL` for user notifications long term.
-- Do not rely on in-memory queues or agent state for product-critical behavior.
-- Every external side effect should create an auditable record.
-- Every background job should include `userId` and an idempotency key.
+**Required:**
+- `DATABASE_URL` — Neon PostgreSQL
+- `BETTER_AUTH_SECRET` — Auth secret key
+- `OPENROUTER_API_KEY` — AI model access
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — OAuth
 
-## Primary Directories
+**Recommended:**
+- `TELEGRAM_BOT_TOKEN` — Telegram integration
+- `RESEND_API_KEY` — Email notifications
+- `GROQ_API_KEY` — Voice transcription
 
-| Path | Purpose |
-|---|---|
-| `src/app` | App Router pages and API routes. |
-| `src/components` | UI components. |
-| `src/lib` | Shared application logic, auth, integrations, agent, notifications. |
-| `src/services` | Service-layer task and habit logic. |
-| `prisma` | Prisma schema and database migrations. |
+## Tech Stack
 
-## Next Engineering Priority
+- **Frontend:** Next.js 15, React 19, Tailwind CSS, Framer Motion
+- **Backend:** Next.js API Routes, Prisma ORM, Neon PostgreSQL
+- **AI:** OpenRouter (free models), Gemini Flash fallback
+- **Orchestration:** Mastra agents
+- **Browser:** Playwright in Docker
+- **Notifications:** Telegram, Email (Resend), In-app
 
-Follow the root execution plan:
+## License
 
-1. Fix lint and encoding corruption.
-2. Remove production unsafe fallbacks.
-3. Make notifications persistent.
-4. Add worker and scheduler.
-5. Harden integrations.
-6. Add durable agent runs and delegated task workflows.
+MIT

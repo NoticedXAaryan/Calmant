@@ -1,18 +1,29 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
+
 export const metadata: Metadata = {
-  title: "Calmant | Last-Minute Life Saver",
-  description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks. Built for action, not passive reminders.",
-  keywords: ["calmant", "productivity", "AI", "deadlines", "assistant", "scheduling", "task management", "adhd planner"],
+  title: "Calmant | Your Personal AI Company",
+  description: "An autonomous AI company that lives on your phone. It captures tasks, manages deadlines, sends reminders, browses the web, and learns your patterns — so you never miss anything again.",
+  keywords: ["calmant", "AI company", "autonomous", "productivity", "deadlines", "assistant", "task management"],
   applicationName: "Calmant",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
   },
   openGraph: {
-    title: "Calmant | Last-Minute Life Saver",
-    description: "An AI execution companion that turns messy commitments into confirmed tasks, next actions, and focus blocks.",
+    title: "Calmant | Your Personal AI Company",
+    description: "An autonomous AI company that lives on your phone. It captures tasks, manages deadlines, sends reminders, browses the web, and learns your patterns.",
     url: "https://calmant.app",
     siteName: "Calmant",
     images: [

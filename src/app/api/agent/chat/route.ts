@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth-utils';
-import { agentReply } from '@/lib/agent';
+import { agentReply } from '@/agents/ceo';
 
 export async function POST(request: NextRequest) {
   try {

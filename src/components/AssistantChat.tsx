@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceInput from "./VoiceInput";
+import ReactMarkdown from "react-markdown";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -18,13 +19,16 @@ interface ChatMessage {
 interface QuickAction {
   label: string;
   message: string;
+  emoji: string;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "Schedule a meeting", message: "I need to schedule a meeting" },
-  { label: "What's on my plate today?", message: "What does my day look like?" },
-  { label: "Add a new task", message: "I need to add a new task" },
-  { label: "Check my calendar", message: "Check my calendar for the next few days" },
+  { label: "What's on my plate today?", message: "What does my day look like?", emoji: "📋" },
+  { label: "Schedule a meeting", message: "I need to schedule a meeting", emoji: "📅" },
+  { label: "Add a new task", message: "I need to add a new task", emoji: "➕" },
+  { label: "Summarize a webpage", message: "Can you summarize a webpage for me?", emoji: "🔍" },
+  { label: "Help me write something", message: "I need help writing a document", emoji: "✍️" },
+  { label: "Check my calendar", message: "Check my calendar for the next few days", emoji: "🗓️" },
 ];
 
 const STORAGE_KEY = "calmant_chat_history";
@@ -52,6 +56,10 @@ function saveHistory(messages: ChatMessage[]) {
   } catch {
     /* quota exceeded */
   }
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 /* ─── Component ──────────────────────────────────────────────────────── */
@@ -190,11 +198,14 @@ export default function AssistantChat({ userName }: { userName?: string }) {
               transition={{ duration: 0.4 }}
               className="text-center w-full max-w-2xl px-2"
             >
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
               <h1 className="text-3xl font-semibold mb-3 text-foreground tracking-tight">
                 {greeting}, {userName || "there"}
               </h1>
               <p className="text-muted-foreground text-base mb-12">
-                How can I help you today?
+                Your AI company is ready. What should we work on?
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl mx-auto">
@@ -202,8 +213,9 @@ export default function AssistantChat({ userName }: { userName?: string }) {
                   <button
                     key={action.label}
                     onClick={() => sendMessage(action.message)}
-                    className="rounded-xl border border-border/60 bg-card/50 p-4 text-left text-sm text-muted-foreground transition-all hover:bg-accent hover:text-foreground hover:shadow-sm"
+                    className="group rounded-xl border border-border/60 bg-card/50 p-4 text-left text-sm text-muted-foreground transition-all hover:bg-accent hover:text-foreground hover:shadow-sm hover:border-border"
                   >
+                    <span className="mr-2">{action.emoji}</span>
                     {action.label}
                   </button>
                 ))}
@@ -223,21 +235,26 @@ export default function AssistantChat({ userName }: { userName?: string }) {
                 transition={{ duration: 0.25 }}
                 className="mb-8"
               >
-                {/* Role label */}
-                <div className="mb-2 text-sm font-semibold text-foreground">
-                  {msg.role === "user" ? (userName || "You") : "Calmant"}
+                {/* Role label + timestamp */}
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {msg.role === "user" ? (userName || "You") : "Calmant"}
+                  </span>
+                  <span className="text-xs text-muted-foreground/50">
+                    {formatTime(msg.timestamp)}
+                  </span>
                 </div>
 
                 {/* Message text */}
-                <div
-                  className={`text-base leading-relaxed whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "text-foreground"
-                      : "text-foreground/90"
-                  }`}
-                >
-                  {msg.content}
-                </div>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed [&_p]:mb-2 [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-0.5 [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:p-3">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-base leading-relaxed whitespace-pre-wrap text-foreground">
+                    {msg.content}
+                  </div>
+                )}
 
                 {/* Divider between messages (not after last unless loading) */}
                 {(idx < messages.length - 1 || loading) && (
@@ -246,7 +263,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
               </motion.div>
             ))}
 
-            {/* Typing indicator */}
+            {/* Thinking indicator */}
             <AnimatePresence>
               {loading && (
                 <motion.div
@@ -258,20 +275,25 @@ export default function AssistantChat({ userName }: { userName?: string }) {
                   <div className="mb-2 text-sm font-semibold text-foreground">
                     Calmant
                   </div>
-                  <div className="flex items-center gap-1.5 h-6">
-                    {[0, 1, 2].map((i) => (
-                      <motion.span
-                        key={i}
-                        className="h-2 w-2 rounded-full bg-foreground/40"
-                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
-                        transition={{
-                          duration: 1.4,
-                          repeat: Infinity,
-                          delay: i * 0.2,
-                          ease: "easeInOut",
-                        }}
-                      />
-                    ))}
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-1.5 h-6">
+                      {[0, 1, 2].map((i) => (
+                        <motion.span
+                          key={i}
+                          className="h-2 w-2 rounded-full bg-primary/60"
+                          animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            delay: i * 0.2,
+                            ease: "easeInOut",
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground animate-pulse">
+                      Working on it...
+                    </span>
                   </div>
                 </motion.div>
               )}

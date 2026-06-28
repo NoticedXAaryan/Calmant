@@ -4,6 +4,7 @@ import { createTool } from "@mastra/core/tools";
 import { prisma } from "./prisma";
 import { z } from "zod";
 import { createOpenAI } from "@ai-sdk/openai";
+import { buildUserContext, formatContextForPrompt } from "./agent-context";
 
 // --- Tool execution context ---
 // We encode both AgentRun id and userId into Mastra's runId to support tracking.
@@ -366,6 +367,44 @@ ${textContent}`;
   }),
 });
 
+const storeMemoryTool = createTool({
+  id: "store_memory",
+  description: "Store an important fact about the user for future reference. Use this when you learn something about their preferences, patterns, upcoming commitments, or personal details they share.",
+  inputSchema: z.object({
+    fact: z.string(),
+    category: z.enum(["preference", "commitment", "pattern", "deadline", "relationship", "interaction", "alert"]),
+  }),
+  execute: withAudit("store_memory", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
+    await prisma.agentMemory.create({
+      data: { userId, fact: data.fact, category: data.category },
+    });
+    return { stored: true, fact: data.fact };
+  }),
+});
+
+const searchMemoryTool = createTool({
+  id: "search_memory",
+  description: "Search stored memories about the user.",
+  inputSchema: z.object({
+    query: z.string().describe("Keyword to search for in memories"),
+    category: z.enum(["preference", "commitment", "pattern", "deadline", "relationship", "interaction", "alert"]).optional(),
+  }),
+  execute: withAudit("search_memory", async (data, ctx: ToolRunContext) => {
+    const userId = requireUserId(ctx);
+    const memories = await prisma.agentMemory.findMany({
+      where: {
+        userId,
+        ...(data.category ? { category: data.category } : {}),
+        fact: { contains: data.query, mode: "insensitive" }
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5
+    });
+    return { memories: memories.map(m => `[${m.category}] ${m.fact}`) };
+  }),
+});
+
 // --- Agent ---
 
 export const lifeSaverAgent = new Agent({
@@ -380,6 +419,9 @@ Your personality:
 - Keep responses concise and conversational.
 
 Your capabilities and rules:
+- Read the CURRENT USER CONTEXT provided at the start of the message to understand what the user is working on.
+- When you learn a new fact about the user (preferences, deadlines, relationships), proactively use 'store_memory'.
+- If the user asks a question about their past, preferences, or previous facts you've learned, use 'search_memory' if it's not in your context window.
 - When the user mentions a meeting, call, appointment, catch-up, sync, or anything that sounds like a scheduled event, use 'schedule_meeting' immediately. Extract the title, time, and duration from their message. If duration isn't specified, default to 30 minutes.
 - When the user shares a link to a hackathon, event, or opportunity and wants to track or register for it, use 'delegate_opportunity' with the URL.
 - When the user wants to add/create a task, use 'draft_task' and tell them to reply 'yes' to confirm.
@@ -405,6 +447,8 @@ Response style:
     check_calendar: checkCalendarTool,
     schedule_meeting: scheduleMeetingTool,
     delegate_opportunity: delegateOpportunityTool,
+    store_memory: storeMemoryTool,
+    search_memory: searchMemoryTool,
   },
 });
 
@@ -424,7 +468,12 @@ export async function agentReply(message: string, userId: string): Promise<strin
   });
 
   try {
-    const result = await agent.generate(message, {
+    const userContext = await buildUserContext(userId);
+    const formattedContext = formatContextForPrompt(userContext);
+    
+    const enrichedMessage = `${formattedContext}\n\nUSER MESSAGE:\n${message}`;
+
+    const result = await agent.generate(enrichedMessage, {
       runId: `${run.id}|${userId}`,
     });
     

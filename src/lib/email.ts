@@ -257,7 +257,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function emailTemplate(title: string, body: string): string {
+export function emailTemplate(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -265,9 +265,9 @@ function emailTemplate(title: string, body: string): string {
   <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
     <div style="margin-bottom:24px;display:flex;align-items:center;gap:10px;">
       <div style="width:32px;height:32px;border-radius:8px;background:#ffffff;display:flex;align-items:center;justify-content:center;">
-        <span style="color:#09090b;font-size:16px;font-weight:800;">L</span>
+        <span style="color:#09090b;font-size:16px;font-weight:800;">C</span>
       </div>
-      <span style="color:#71717a;font-size:12px;font-weight:600;letter-spacing:0.05em;">LAST-MINUTE LIFE SAVER</span>
+      <span style="color:#71717a;font-size:12px;font-weight:600;letter-spacing:0.05em;">CALMANT</span>
     </div>
     <div style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:24px;">
       <h2 style="color:#f1f5f9;margin:0 0 16px;font-size:18px;font-weight:600;">${title}</h2>
@@ -275,7 +275,7 @@ function emailTemplate(title: string, body: string): string {
     </div>
     <div style="text-align:center;margin-top:24px;">
       <p style="color:#52525b;font-size:11px;margin:0;">
-        Last-Minute Life Saver | AI Productivity Companion
+        Calmant | AI Productivity Companion
       </p>
     </div>
   </div>

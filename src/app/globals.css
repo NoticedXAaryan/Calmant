@@ -209,3 +209,47 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
+
+/* ─── Mobile optimizations ────────────────────────────────── */
+
+/* Smoother scrolling on iOS */
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Remove tap highlight on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Faster taps for interactive elements */
+button, a, input, textarea, select, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Safe area insets for notched devices */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent text selection on interactive UI elements */
+nav, [role="navigation"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Better scrollbar hiding for chat areas */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth transitions for dark mode */
+html.dark {
+  color-scheme: dark;
+}

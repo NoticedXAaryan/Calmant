@@ -21,6 +21,39 @@ export async function GET() {
   }
 }
 
+export async function POST(req: Request) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { fact, category } = body;
+
+    if (!fact || !category) {
+      return NextResponse.json({ error: "fact and category are required" }, { status: 400 });
+    }
+
+    const validCategories = [
+      "preference", "commitment", "pattern", "method",
+      "deadline", "relationship", "interaction", "alert",
+    ];
+    if (!validCategories.includes(category)) {
+      return NextResponse.json({ error: `Invalid category. Must be one of: ${validCategories.join(", ")}` }, { status: 400 });
+    }
+
+    const memory = await prisma.agentMemory.create({
+      data: { userId, fact, category },
+    });
+
+    return NextResponse.json({ success: true, memory });
+  } catch (error) {
+    console.error("Failed to store memory:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const userId = await getUserId();

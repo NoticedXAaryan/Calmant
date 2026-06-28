@@ -19,6 +19,7 @@ import {
   FolderGit2,
   Activity,
   History,
+  ListTodo,
 } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ import { WorkerStatus } from "./WorkerStatus";
 const navItems = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard },
   { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },
+  { href: "/dashboard/activity", label: "Timeline", icon: ListTodo },
   { href: "/dashboard/habits", label: "Habits", icon: Target },
   { href: "/dashboard/assistant", label: "Assistant", icon: MessageSquare },
   { href: "/dashboard/assistant/memory", label: "Memory", icon: Brain },

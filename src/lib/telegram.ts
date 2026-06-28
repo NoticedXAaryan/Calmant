@@ -103,12 +103,29 @@ export async function initTelegram(): Promise<TelegramStatus> {
         // Delete verification code
         await prisma.verification.delete({ where: { id: verification.id } });
 
-        await bot!.sendMessage(chatId, "✅ Successfully connected! You can now send me tasks.");
+        await bot!.sendMessage(chatId, `✅ Connected! Hey there, I'm ready to help.\n\nYou can:\n• Send me a task: "Submit report by Friday 5pm"\n• Send a voice note — I'll transcribe and process it\n• Send a link — I'll extract deadlines and create a plan\n\nI'll also send you reminders and daily briefings here. 🎯`);
         return;
       }
 
       if (text === "/start") {
-        await bot!.sendMessage(chatId, "Welcome to Last-Minute Life Saver. Send `/connect CODE` using the code from your dashboard to link your account.");
+        await bot!.sendMessage(chatId, "Welcome to Calmant! 🧠\nI'm your personal execution assistant.\n\nTo link your account, get a connect code from your dashboard:\nDashboard → Integrations → Telegram → Get Connect Code\n\nThen send: /connect YOUR_CODE");
+        return;
+      }
+
+      if (text === "/help") {
+        await bot!.sendMessage(chatId, "Commands:\n/start - Welcome message\n/connect CODE - Link your account\n/status - Check connection status\n/help - Show this message\n\nOtherwise, just chat naturally, send tasks, links, or voice notes!");
+        return;
+      }
+
+      if (text === "/status") {
+        const connection = await prisma.integrationConnection.findFirst({
+          where: { provider: "telegram", externalId: chatId.toString() },
+        });
+        if (connection) {
+          await bot!.sendMessage(chatId, "🟢 Connected to your Calmant account.");
+        } else {
+          await bot!.sendMessage(chatId, "🔴 Not connected. Send `/connect CODE` using the code from your dashboard.");
+        }
         return;
       }
 

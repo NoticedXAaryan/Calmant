@@ -30,6 +30,8 @@ model User {
   agentRuns              AgentRun[]
   delegatedTasks         DelegatedTask[]
   auditEvents            AuditEvent[]
+  artifacts              Artifact[]
+  departmentRuns         DepartmentRun[]
 }
 
 model Task {
@@ -260,4 +262,42 @@ model AuditEvent {
   details    Json?
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Artifact {
+  id              String   @id @default(cuid())
+  userId          String
+  delegatedTaskId String?
+  agentRunId      String?
+  type            String   // screenshot | note | document | html_snapshot | form_data
+  title           String
+  description     String?
+  filePath        String?  // path in artifact volume (for binary files)
+  content         String?  // for text-based artifacts (notes, documents)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, delegatedTaskId])
+  @@index([userId, createdAt])
+}
+
+model DepartmentRun {
+  id           String    @id @default(cuid())
+  userId       String
+  parentRunId  String?   // AgentRun id of the CEO run that spawned this
+  department   String    // capture | deadline | browser | comms | recovery | intel | creator
+  objective    String
+  status       String    @default("pending") // pending | running | waiting_approval | completed | failed
+  input        Json?
+  output       Json?
+  artifacts    Json?     // array of Artifact IDs produced by this run
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([parentRunId])
 }

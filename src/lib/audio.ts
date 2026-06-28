@@ -6,7 +6,7 @@ import os from "os";
 /**
  * Transcribes an audio buffer (.ogg) from WhatsApp using Groq's whisper model.
  */
-export async function transcribeAudio(buffer: Buffer): Promise<string> {
+export async function transcribeAudio(buffer: Buffer, format: "ogg" | "webm" = "ogg"): Promise<string> {
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is missing. Cannot transcribe audio.");
   }
@@ -16,7 +16,7 @@ export async function transcribeAudio(buffer: Buffer): Promise<string> {
   });
 
   // Groq SDK requires a file stream, so we write the buffer to a temp file
-  const tempFilePath = path.join(os.tmpdir(), `wa-audio-${Date.now()}.ogg`);
+  const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.${format}`);
   fs.writeFileSync(tempFilePath, buffer);
 
   try {

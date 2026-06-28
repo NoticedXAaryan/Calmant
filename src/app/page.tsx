@@ -9,7 +9,6 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock3,
-  FileCheck2,
   ListChecks,
   MessageCircle,
   MessageSquareText,
@@ -24,18 +23,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 const stats = [
-  { value: "1", label: "next action surfaced" },
-  { value: "0", label: "random deadlines saved" },
-  { value: "3", label: "channels supported" },
-  { value: "24/7", label: "deadline watch" },
+  { value: "7", label: "AI departments" },
+  { value: "8", label: "proactive jobs" },
+  { value: "4", label: "channels" },
+  { value: "24/7", label: "always-on" },
 ];
 
-const problems = [
-  "Notifications arrive without context and become background noise.",
-  "Dashboards ask overwhelmed users to make even more decisions.",
-  "Vague tasks stay vague until the final hour.",
-  "Most tools punish failure instead of creating a recovery path.",
-];
+
 
 const workflow = [
   {
@@ -63,33 +57,33 @@ const workflow = [
 const features = [
   {
     icon: TimerReset,
-    title: "Execution cockpit",
-    body: "The default screen is not chat. It shows the one task to start, why it matters, and the exact action to take.",
+    title: "Smart execution",
+    body: "The default screen shows your most urgent task, why it matters, and the exact action to take — no decision fatigue.",
   },
   {
     icon: Mic,
-    title: "Live voice capture",
-    body: "Click the mic and watch speech appear in the task capture box before you confirm it.",
+    title: "Voice capture",
+    body: "Speak naturally and watch your words become structured tasks with deadlines, estimates, and reminders extracted.",
   },
   {
     icon: TrendingUp,
     title: "Entropy scoring",
-    body: "Risk is calculated from time slack, estimated effort, priority, snoozes, and whether the task has been broken down.",
+    body: "Urgency is calculated from time slack, effort, priority, snoozes, and subtask coverage — not just a due date.",
   },
   {
     icon: ListChecks,
-    title: "AI breakdowns",
-    body: "Break large commitments into small actions with an LLM when available and a deterministic fallback when it is not.",
+    title: "Auto-delegation",
+    body: "Your CEO agent routes tasks to specialized departments: Capture, Deadline, Comms, Recovery, Intel, Creator, and Browser.",
   },
   {
     icon: BellRing,
-    title: "Notification ladder",
-    body: "In-app alerts work by default. Email can send confirmations and critical alerts when configured.",
+    title: "Proactive outreach",
+    body: "Morning briefings, evening reviews, smart-start reminders — your AI company reaches out before you forget.",
   },
   {
     icon: MessageCircle,
-    title: "Messaging-ready",
-    body: "Telegram and WhatsApp are presented honestly: available when configured, hidden from false promises when not.",
+    title: "Multi-channel",
+    body: "In-app chat, Telegram, email, and WhatsApp — your AI company meets you wherever you are.",
   },
 ];
 
@@ -238,13 +232,13 @@ export default function LandingPage() {
         <div>
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" />
-            AI execution companion for last-minute humans
+            Your personal AI company — 7 departments, 1 CEO
           </div>
           <h1 className="max-w-2xl text-4xl font-semibold tracking-tight md:text-6xl">
-            Stop missing deadlines. Start the next action.
+            An entire AI company. In your pocket.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-            Calmant turns vague commitments into confirmed tasks, prioritizes the risk, and gives you one concrete focus block at a time.
+            Calmant isn&apos;t a chatbot. It&apos;s a CEO with 7 specialized departments that autonomously capture tasks, manage deadlines, send reminders, browse the web, and learn your patterns.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link href="/signup">
@@ -273,19 +267,35 @@ export default function LandingPage() {
       </section>
 
       <section className="border-y border-border bg-muted/30">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 md:px-8 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="mx-auto max-w-7xl px-4 py-16 md:px-8">
           <SectionHeader
-            label="Why reminders fail"
-            title="The problem is not memory. It is execution friction."
-            body="When someone is stressed, tired, or time blind, a notification is just another decision to ignore. Calmant reduces the decision to one concrete action."
+            label="Your AI team"
+            title="Meet the departments that run your company."
+            body="Each department is a specialized AI agent. The CEO routes every request to the right team — you never have to think about how it works."
           />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {problems.map((problem) => (
-              <div key={problem} className="rounded-lg border border-border bg-card p-4 text-sm leading-6 text-muted-foreground">
-                <FileCheck2 className="mb-3 h-5 w-5 text-muted-foreground" />
-                {problem}
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { emoji: "📥", name: "Capture", desc: "Parse inputs, create tasks, extract info from URLs and messages", color: "border-blue-500/30" },
+              { emoji: "⏰", name: "Deadline", desc: "Plan, schedule, check calendar, decompose complex work into subtasks", color: "border-amber-500/30" },
+              { emoji: "📬", name: "Comms", desc: "Send Telegram messages, emails, and schedule future reminders", color: "border-green-500/30" },
+              { emoji: "🛟", name: "Recovery", desc: "Triage overdue tasks, reschedule, crisis management and rescue plans", color: "border-red-500/30" },
+              { emoji: "🔍", name: "Intel", desc: "Store and search memories, summarize URLs, research, learn from patterns", color: "border-purple-500/30" },
+              { emoji: "🎨", name: "Creator", desc: "Generate documents, reports, outlines, summaries, and email drafts", color: "border-pink-500/30" },
+              { emoji: "🌐", name: "Browser", desc: "Navigate websites, fill forms, take screenshots, extract page data", color: "border-cyan-500/30" },
+            ].map((dept) => (
+              <div key={dept.name} className={`rounded-lg border ${dept.color} bg-card p-4`}>
+                <div className="mb-3 text-2xl">{dept.emoji}</div>
+                <h3 className="text-base font-semibold">{dept.name}</h3>
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{dept.desc}</p>
               </div>
             ))}
+            <div className="flex items-center justify-center rounded-lg border border-dashed border-border bg-card/50 p-4 text-center">
+              <div>
+                <div className="mb-2 text-2xl">🧠</div>
+                <h3 className="text-base font-semibold">CEO</h3>
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">Routes everything. Remembers everything. Gets smarter with every interaction.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -386,9 +396,9 @@ export default function LandingPage() {
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <BellRing className="h-5 w-5" />
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight">Built for demos, but honest about production.</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">It gets smarter every time you use it.</h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            In-app planning, capture, scoring, and focus blocks work directly. Email, Telegram, and WhatsApp show real configuration state instead of fake connected badges.
+            Every interaction teaches the knowledge graph. Methods that work get remembered. Preferences get stored. Your AI company evolves from generic to personal in days, not months.
           </p>
         </div>
       </section>
@@ -396,8 +406,8 @@ export default function LandingPage() {
       <section className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 px-4 py-16 md:flex-row md:items-center md:px-8">
           <div>
-            <h2 className="text-3xl font-semibold tracking-tight">Ready to stop guessing what to do next?</h2>
-            <p className="mt-2 text-muted-foreground">Open the dashboard and capture one real commitment.</p>
+            <h2 className="text-3xl font-semibold tracking-tight">Ready to hire your AI company?</h2>
+            <p className="mt-2 text-muted-foreground">Sign up and meet your CEO in under 60 seconds.</p>
           </div>
           <div className="flex gap-3">
             <Link href="/signup">
@@ -417,7 +427,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between md:px-8">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            Built for action, not passive reminders.
+            Your personal AI company. Always on, always learning.
           </div>
           <div className="flex gap-4">
             <Link href="/terms" className="hover:text-foreground">Terms</Link>
