@@ -1,4 +1,16 @@
 services:
+  # ── Temporary DB Migrator ───────────────────────────
+  migrator:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install prisma && npx prisma db push --accept-data-loss"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    networks:
+      - dokploy-network
+    volumes:
+      - ./prisma:/app/prisma
+
   # ── Main Web App ────────────────────────────────────
   web:
     build:
