@@ -11,6 +11,9 @@ services:
         - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
         - DATABASE_URL=${DATABASE_URL}
     restart: unless-stopped
+    networks:
+      - default
+      - dokploy-network
     env_file:
       - .env
     environment:
@@ -53,3 +56,8 @@ services:
 volumes:
   sandbox-artifacts:
     driver: local
+
+networks:
+  dokploy-network:
+    external: true
+
