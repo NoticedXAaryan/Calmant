@@ -11,8 +11,6 @@ services:
         - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
         - DATABASE_URL=${DATABASE_URL}
     restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
     env_file:
       - .env
     environment:
