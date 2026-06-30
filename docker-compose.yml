@@ -24,6 +24,12 @@ services:
         condition: service_healthy
       hermes:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.calmant-web.rule=Host(`calmanttest.aaaryan.space`)
+      - traefik.http.routers.calmant-web.entrypoints=websecure
+      - traefik.http.routers.calmant-web.tls.certresolver=letsencrypt
+      - traefik.http.services.calmant-web.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
