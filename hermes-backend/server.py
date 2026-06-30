@@ -14,11 +14,13 @@ def ensure_profile(user_id: str):
     """Ensures a Hermes profile exists for the given user ID."""
     # We can just attempt to create it. If it exists, hermes warns or skips.
     try:
+        env = os.environ.copy()
         subprocess.run(
             ["hermes", "profile", "create", user_id],
             capture_output=True,
             check=False,
-            shell=False
+            shell=False,
+            env=env
         )
     except Exception as e:
         print(f"Error ensuring profile {user_id}: {e}")
@@ -36,7 +38,7 @@ async def chat_endpoint(req: ChatRequest):
         env["HERMES_PROFILE"] = req.user_id
         
         result = subprocess.run(
-            ["hermes", "-z", req.message, "chat"],
+            ["hermes", "-z", req.message],
             capture_output=True,
             text=True,
             check=True,
