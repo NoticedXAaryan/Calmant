@@ -30,14 +30,18 @@ async def chat_endpoint(req: ChatRequest):
     
     ensure_profile(req.user_id)
     
-    # Run Hermes in oneshot mode, isolated to this user's profile
+    # Run Hermes in oneshot mode, isolated to this user's profile via environment variable
     try:
+        env = os.environ.copy()
+        env["HERMES_PROFILE"] = req.user_id
+        
         result = subprocess.run(
-            ["hermes", "--profile", req.user_id, "-z", req.message],
+            ["hermes", "chat", "-z", req.message],
             capture_output=True,
             text=True,
             check=True,
-            shell=False
+            shell=False,
+            env=env
         )
         # The oneshot mode (-z) prints ONLY the final response to stdout
         return {"reply": result.stdout.strip()}
