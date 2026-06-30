@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 function tooManyRequests(retryAfter: number) {
@@ -25,6 +26,7 @@ export async function GET() {
     return NextResponse.json(memories);
   } catch (error) {
     console.error("Failed to fetch memories:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, memory });
   } catch (error) {
     console.error("Failed to store memory:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -98,6 +101,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete memory:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowLeft, Briefcase, CheckCircle2, GraduationCap, HeartPulse, Zap, Loader2, MessageCircle, User, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,9 @@ export default function OnboardingPage() {
   const [generatingCode, setGeneratingCode] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [connected, setConnected] = useState(false);
+  const finishOnboardingRef = useRef<() => Promise<void>>(async () => {});
 
-  const generateTelegramCode = async () => {
+  const generateTelegramCode = useCallback(async () => {
     setGeneratingCode(true);
     try {
       const res = await fetch("/api/integrations/telegram/connect-code", { method: "POST" });
@@ -37,38 +38,13 @@ export default function OnboardingPage() {
     } finally {
       setGeneratingCode(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (step === 3 && !telegramCode) {
       generateTelegramCode();
     }
-  }, [step]);
-
-  useEffect(() => {
-    if (step !== 3 || connected) return;
-
-    const interval = setInterval(async () => {
-      setCheckingStatus(true);
-      try {
-        const res = await fetch("/api/integrations/status");
-        const data = await res.json();
-        if (data.success && data.data.telegram.configured && data.data.telegram.userLinked) {
-          setConnected(true);
-          clearInterval(interval);
-          setTimeout(() => {
-            finishOnboarding();
-          }, 2000);
-        }
-      } catch (e) {
-        // ignore
-      } finally {
-        setCheckingStatus(false);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [step, connected]);
+  }, [step, telegramCode, generateTelegramCode]);
 
   async function saveUserProfile() {
     try {
@@ -115,6 +91,35 @@ export default function OnboardingPage() {
     router.push("/dashboard");
     router.refresh();
   }
+
+  useEffect(() => {
+    finishOnboardingRef.current = finishOnboarding;
+  });
+
+  useEffect(() => {
+    if (step !== 3 || connected) return;
+
+    const interval = setInterval(async () => {
+      setCheckingStatus(true);
+      try {
+        const res = await fetch("/api/integrations/status");
+        const data = await res.json();
+        if (data.success && data.data.telegram.configured && data.data.telegram.userLinked) {
+          setConnected(true);
+          clearInterval(interval);
+          setTimeout(() => {
+            finishOnboardingRef.current();
+          }, 2000);
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setCheckingStatus(false);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [step, connected]);
 
   // --- Step Indicator ---
   const totalSteps = 3;

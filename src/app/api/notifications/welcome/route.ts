@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { welcomeEmailHtml } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email";
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, sent: result.sent });
   } catch (error: any) {
     console.error("[POST /api/notifications/welcome]", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json(
       { success: false, error: error.message || "Failed to send welcome email" },
       { status: 500 }

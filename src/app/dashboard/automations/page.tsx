@@ -9,9 +9,7 @@ interface Job {
   id: string;
   name: string;
   status: string;
-  runAt: string;
-  attempts: number;
-  lastError: string | null;
+  count: number;
 }
 
 interface Policy {
@@ -139,15 +137,9 @@ export default function AutomationsPage() {
                           {job.status}
                         </Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1 flex justify-between">
-                        <span>Run At: {new Date(job.runAt).toLocaleString()}</span>
-                        <span>Attempts: {job.attempts}</span>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {job.count} job{job.count === 1 ? "" : "s"}
                       </div>
-                      {job.lastError && (
-                        <div className="text-xs text-red-500 mt-2 p-2 bg-red-500/10 rounded truncate">
-                          {job.lastError}
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}

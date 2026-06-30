@@ -23,6 +23,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "sandbox/**/*.js",
+    "test-e2e.js",
   ]),
 ]);
 

@@ -32,7 +32,6 @@ export async function registerRepeatingJobs() {
     { name: 'evening-review', intervalMinutes: 60 },
     { name: 'provider-health-probe', intervalMinutes: 10 },
     { name: 'smart-start-reminders', intervalMinutes: 5 },
-    { name: 'delegated-task-followup', intervalMinutes: 60 },
     { name: 'sandbox-health-probe', intervalMinutes: 5 },
   ];
 

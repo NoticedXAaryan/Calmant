@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 
 export async function GET() {
   try {
@@ -17,6 +18,7 @@ export async function GET() {
     return NextResponse.json(delegatedTasks);
   } catch (error) {
     console.error("Failed to fetch delegated tasks:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
@@ -50,6 +52,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete delegated task:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 import { buildExecutionPlan } from "@/lib/task-planning";
 import { TaskService } from "@/services/taskService";
 
@@ -16,6 +17,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[GET /api/schedule]", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json(
       { success: false, error: "Failed to fetch schedule", timestamp: new Date().toISOString() },
       { status: 500 }

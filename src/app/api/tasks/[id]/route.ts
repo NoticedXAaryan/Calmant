@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, TaskStatus } from '@prisma/client';
 import { TaskService } from '@/services/taskService';
 import { getUserId } from '@/lib/auth-utils';
+import { isAuthError, respondUnauthorized } from '@/lib/api-helpers';
 
 const VALID_STATUSES = new Set(Object.values(TaskStatus));
 
@@ -59,6 +60,7 @@ export async function GET(
     return NextResponse.json(task);
   } catch (error) {
     console.error('[GET /api/tasks/[id]]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: 'Failed to fetch task' }, { status: 500 });
   }
 }
@@ -77,6 +79,7 @@ export async function PATCH(
     return NextResponse.json(task);
   } catch (error: any) {
     console.error('[PATCH /api/tasks/[id]]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     const message = errorMessage(error);
     if (message === 'Task not found') {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
@@ -100,6 +103,7 @@ export async function DELETE(
     return NextResponse.json({ deleted: true });
   } catch (error: any) {
     console.error('[DELETE /api/tasks/[id]]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     if (errorMessage(error) === 'Task not found') {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }

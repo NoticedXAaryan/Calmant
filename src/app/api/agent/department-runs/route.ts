@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 
 export async function GET() {
   try {
@@ -27,6 +28,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: runs });
   } catch (error) {
     console.error("Failed to fetch department runs:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

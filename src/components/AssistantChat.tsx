@@ -77,7 +77,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setMounted(true);
     setMessages(loadHistory());
   }, []);
@@ -203,7 +203,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 10);
     },
-    [loading, attachedFile]
+    [attachedFile]
   );
 
   const handleSubmit = (e: FormEvent) => {

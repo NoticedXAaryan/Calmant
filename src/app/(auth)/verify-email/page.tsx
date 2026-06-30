@@ -17,9 +17,9 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setErrorMessage("No verification token found. Please check your email link.");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setStatus("error");
       return;
     }

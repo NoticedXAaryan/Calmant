@@ -13,6 +13,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
   title: "Calmant | Your Personal AI Company",
   description: "An autonomous AI company that lives on your phone. It captures tasks, manages deadlines, sends reminders, browses the web, and learns your patterns — so you never miss anything again.",
   keywords: ["calmant", "AI company", "autonomous", "productivity", "deadlines", "assistant", "task management"],

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export const maxDuration = 60; // Set max duration to 60s for Vercel Hobby tier
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 import { fallbackDecomposeTask, type DecomposedSubtask } from "@/lib/task-planning";
 import { TaskService } from "@/services/taskService";
 
@@ -104,6 +105,7 @@ export async function POST(
     });
   } catch (error) {
     console.error("[POST /api/tasks/[id]/decompose]", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json(
       { success: false, error: "Failed to decompose task", timestamp: new Date().toISOString() },
       { status: 500 }

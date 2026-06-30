@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { isAuthError, respondUnauthorized } from "@/lib/api-helpers";
 import { transcribeAudio } from "@/lib/audio";
 
 export async function POST(request: NextRequest) {
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, text });
   } catch (error: any) {
     console.error("[Voice Transcribe Error]:", error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json(
       { success: false, error: error.message || "Transcription failed" },
       { status: 500 }

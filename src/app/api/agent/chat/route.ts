@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth-utils';
 import { rateLimit, rateLimitKeyFromRequest, RATE_LIMITS } from '@/lib/rate-limit';
+import { agentReply } from '@/lib/agent';
 
 export const runtime = 'nodejs';
 
@@ -33,20 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Forward the message to the stateless Hermes backend container
-    const hermesRes = await fetch('http://hermes:8000/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, message })
-    });
-    
-    if (!hermesRes.ok) {
-      const errorText = await hermesRes.text();
-      throw new Error(`Hermes backend error: ${errorText}`);
-    }
-
-    const hermesData = await hermesRes.json();
-    const replyText = hermesData.reply;
+    const replyText = await agentReply(message, userId);
 
     return NextResponse.json({
       success: true,

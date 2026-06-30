@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TaskService } from '@/services/taskService';
 import { getUserId } from '@/lib/auth-utils';
+import { isAuthError, respondUnauthorized } from '@/lib/api-helpers';
 
 export async function GET() {
   try {
@@ -10,6 +11,7 @@ export async function GET() {
     return NextResponse.json(tasks);
   } catch (error) {
     console.error('[GET /api/tasks]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
   }
 }
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error('[POST /api/tasks]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     return NextResponse.json({ error: 'Failed to create task' }, { status: 500 });
   }
 }

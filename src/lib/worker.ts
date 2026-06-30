@@ -173,27 +173,9 @@ async function processSandboxHealthProbe() {
       console.log(`[Worker] Sandbox healthy: ${data.activeSessions} active sessions`);
     } else {
       console.warn(`[Worker] Sandbox unhealthy: HTTP ${res.status}`);
-      await prisma.auditEvent.create({
-        data: {
-          userId: 'system',
-          action: 'sandbox_health_check',
-          targetType: 'integration',
-          targetId: 'sandbox',
-          details: { status: 'degraded', httpStatus: res.status },
-        },
-      });
     }
   } catch (err: any) {
     console.warn('[Worker] Sandbox unreachable:', err.message);
-    await prisma.auditEvent.create({
-      data: {
-        userId: 'system',
-        action: 'sandbox_health_check',
-        targetType: 'integration',
-        targetId: 'sandbox',
-        details: { status: 'unreachable', error: err.message },
-      },
-    });
   }
 }
 
@@ -502,15 +484,6 @@ export async function pollJobs() {
           where: { id: job.id },
           data: { status: 'failed', attempts, lastError: err.message }
         });
-        await prisma.auditEvent.create({
-          data: {
-            userId: 'system',
-            action: 'job_permanently_failed',
-            targetType: 'background_job',
-            targetId: job.id,
-            details: { name: job.name, attempts, error: err.message },
-          },
-        }).catch(() => {});
       } else {
         // Exponential backoff with jitter
         const backoffMs = Math.min(

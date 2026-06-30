@@ -5,13 +5,10 @@ import { getUserId } from "@/lib/auth-utils";
 export async function GET() {
   try {
     const userId = await getUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
-    const jobs = await prisma.backgroundJob.findMany({
-      orderBy: { runAt: "desc" },
-      take: 50,
+    const jobs = await prisma.backgroundJob.groupBy({
+      by: ["name", "status"],
+      _count: { _all: true },
     });
 
     const policies = await prisma.alertPolicy.findMany({
@@ -22,12 +19,20 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        jobs,
+        jobs: jobs.map((job) => ({
+          id: `${job.name}:${job.status}`,
+          name: job.name,
+          status: job.status,
+          count: job._count._all,
+        })),
         policies,
-      }
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to fetch automations:", error);
+    if (error?.status === 401) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

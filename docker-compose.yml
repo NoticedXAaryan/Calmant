@@ -4,12 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-        - BETTER_AUTH_URL=${BETTER_AUTH_URL}
-        - GEMINI_API_KEY=${GEMINI_API_KEY}
-        - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-        - DATABASE_URL=${DATABASE_URL}
     restart: unless-stopped
     networks:
       - default
@@ -17,6 +11,7 @@ services:
     env_file:
       - .env
     environment:
+      - HERMES_URL=http://hermes:8000
       - SANDBOX_URL=http://sandbox:4000
       - NEXT_PUBLIC_SANDBOX_URL=/sandbox-api
       - HOSTNAME=0.0.0.0
@@ -84,10 +79,11 @@ services:
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - DATABASE_URL=${DATABASE_URL}
+      - SANDBOX_URL=http://sandbox:4000
     volumes:
       - hermes-data:/root/.hermes
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 5s
       retries: 3

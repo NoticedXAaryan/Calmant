@@ -2,7 +2,7 @@
 // POST: Send a notification email (critical, morning, evening, digest)
 // GET: Get notification status and in-app queue
 
-import { respond, respondError } from '@/lib/api-helpers';
+import { isAuthError, respond, respondError, respondUnauthorized } from '@/lib/api-helpers';
 import { getUserId } from '@/lib/auth-utils';
 import { sendEmail, criticalAlertEmail, isEmailConfigured } from '@/lib/email';
 import {
@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
     return respondError('Invalid type. Use: test, critical, mark-read, mark-all-read', 400);
   } catch (error) {
     console.error('[POST /api/notifications/email]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     return respondError('Failed to process notification request');
   }
 }

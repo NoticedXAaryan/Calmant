@@ -22,6 +22,17 @@ export function respondError(message: string, status = 500): Response {
   return Response.json(body, { status });
 }
 
+export function isAuthError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AuthError" || (error as Error & { status?: number }).status === 401)
+  );
+}
+
+export function respondUnauthorized(): Response {
+  return respondError("Unauthorized", 401);
+}
+
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }

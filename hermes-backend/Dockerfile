@@ -21,7 +21,7 @@ RUN curl -sL https://hermes-agent.nousresearch.com/install.sh | bash
 ENV PATH="/root/.hermes/hermes-agent/venv/bin:$PATH"
 
 # Install FastAPI wrapper dependencies
-RUN pip install fastapi uvicorn pydantic
+RUN pip install fastapi uvicorn pydantic requests psycopg2-binary
 
 # Copy custom skills and API wrapper
 COPY sandbox_tools.py /root/.hermes/skills/
