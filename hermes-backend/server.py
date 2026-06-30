@@ -36,7 +36,7 @@ async def chat_endpoint(req: ChatRequest):
         env["HERMES_PROFILE"] = req.user_id
         
         result = subprocess.run(
-            ["hermes", "chat", "-z", req.message],
+            ["hermes", "-z", req.message, "chat"],
             capture_output=True,
             text=True,
             check=True,
