@@ -18,7 +18,7 @@ def ensure_profile(user_id: str):
             ["hermes", "profile", "create", user_id],
             capture_output=True,
             check=False,
-            shell=True
+            shell=False
         )
     except Exception as e:
         print(f"Error ensuring profile {user_id}: {e}")
@@ -37,7 +37,7 @@ async def chat_endpoint(req: ChatRequest):
             capture_output=True,
             text=True,
             check=True,
-            shell=True
+            shell=False
         )
         # The oneshot mode (-z) prints ONLY the final response to stdout
         return {"reply": result.stdout.strip()}
