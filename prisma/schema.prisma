@@ -20,7 +20,6 @@ model User {
   tasks         Task[]
   habits        Habit[]
   memories      AgentMemory[]
-  waSession     WaSession?
   ntfyTopic     String?
   sessions               Session[]
   accounts               Account[]
@@ -89,17 +88,6 @@ model AgentMemory {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// Baileys stores auth state here — JSON blob, updated on every reconnect
-model WaSession {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  authState Json                          // Baileys creds + keys
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {

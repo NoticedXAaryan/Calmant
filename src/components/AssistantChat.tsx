@@ -68,6 +68,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingPhrase, setLoadingPhrase] = useState("Working on it...");
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -99,6 +100,26 @@ export default function AssistantChat({ userName }: { userName?: string }) {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
+
+  // Dynamic loading phrases
+  useEffect(() => {
+    if (!loading) return;
+    const phrases = [
+      "Analyzing request...",
+      "Routing to departments...",
+      "Gathering context...",
+      "Formulating plan...",
+      "Generating response...",
+      "Almost there..."
+    ];
+    let i = 0;
+    setLoadingPhrase(phrases[0]);
+    const interval = setInterval(() => {
+      i = (i + 1) % phrases.length;
+      setLoadingPhrase(phrases[i]);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -291,8 +312,8 @@ export default function AssistantChat({ userName }: { userName?: string }) {
                         />
                       ))}
                     </div>
-                    <span className="text-xs text-muted-foreground animate-pulse">
-                      Working on it...
+                    <span className="text-xs text-muted-foreground animate-pulse transition-all duration-300">
+                      {loadingPhrase}
                     </span>
                   </div>
                 </motion.div>

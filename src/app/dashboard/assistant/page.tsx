@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import AssistantChat from "@/components/AssistantChat";
 import { useSession } from "@/lib/auth-client";
+import { LiveSandboxViewer } from "@/components/LiveSandboxViewer";
 
 export default function AssistantPage() {
   const router = useRouter();
@@ -33,8 +34,17 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col md:h-screen">
-      <AssistantChat userName={userName} />
+    <div className="flex h-[calc(100vh-56px)] flex-col md:h-screen lg:flex-row w-full overflow-hidden">
+      <div className="flex-1 min-w-0 h-full">
+        <AssistantChat userName={userName} />
+      </div>
+      <div className="w-full lg:w-[400px] xl:w-[480px] border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 p-6 hidden lg:flex flex-col gap-6 overflow-y-auto">
+        <div>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">Live Browser</h3>
+          <p className="text-sm text-muted-foreground mt-1">Watch the Browser Department execute web tasks autonomously in real-time.</p>
+        </div>
+        <LiveSandboxViewer />
+      </div>
     </div>
   );
 }

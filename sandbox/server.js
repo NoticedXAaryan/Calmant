@@ -7,6 +7,8 @@ const { chromium } = require("playwright");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const WebSocket = require("ws");
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
@@ -46,6 +48,9 @@ function cleanupSession(sessionId) {
   const session = sessions.get(sessionId);
   if (session) {
     clearTimeout(session.timeoutTimer);
+    if (session.cdpClient) {
+      session.cdpClient.detach().catch(() => {});
+    }
     session.context.close().catch(() => {});
     sessions.delete(sessionId);
     console.log(`[Sandbox] Session ${sessionId} cleaned up. Active: ${sessions.size}`);
@@ -72,6 +77,11 @@ app.get("/health", (req, res) => {
     maxSessions: MAX_SESSIONS,
     uptime: process.uptime(),
   });
+});
+
+app.get("/sessions/active", (req, res) => {
+  const activeIds = [...sessions.keys()];
+  res.json({ active: activeIds.length > 0, sessionId: activeIds[0] || null });
 });
 
 // --- Create Session ---
@@ -149,7 +159,8 @@ app.post("/session/:id/screenshot", async (req, res) => {
   try {
     const filename = `screenshot_${Date.now()}.png`;
     const filepath = path.join(ARTIFACTS_DIR, filename);
-    await session.page.screenshot({ path: filepath, fullPage: req.body.fullPage || false });
+    const body = req.body || {};
+    await session.page.screenshot({ path: filepath, fullPage: body.fullPage || false });
 
     res.json({ filename, filepath, url: `/artifacts/${filename}` });
   } catch (err) {
@@ -266,10 +277,61 @@ app.delete("/session/:id", (req, res) => {
 
 app.use("/artifacts", express.static(ARTIFACTS_DIR));
 
-// --- Start ---
+// --- WebSocket & Server ---
 
-app.listen(PORT, () => {
-  console.log(`[Sandbox] Browser sandbox running on port ${PORT}`);
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.action === "subscribe") {
+        const targetSessionId = data.sessionId || [...sessions.keys()][0];
+        if (!targetSessionId || !sessions.has(targetSessionId)) {
+          ws.send(JSON.stringify({ type: 'status', status: 'idle', message: 'No active session' }));
+          return;
+        }
+
+        const session = sessions.get(targetSessionId);
+        
+        if (!session.cdpClient) {
+          session.cdpClient = await session.page.context().newCDPSession(session.page);
+          session.wsClients = new Set();
+          
+          session.cdpClient.on('Page.screencastFrame', (frameObj) => {
+             const payload = JSON.stringify({ type: 'frame', data: frameObj.data });
+             for (const client of session.wsClients) {
+                if (client.readyState === WebSocket.OPEN) {
+                   client.send(payload);
+                }
+             }
+             session.cdpClient.send('Page.screencastFrameAck', { sessionId: frameObj.sessionId }).catch(()=>{});
+          });
+          
+          await session.cdpClient.send('Page.startScreencast', { format: 'jpeg', quality: 50, everyNthFrame: 1 });
+        }
+        
+        session.wsClients.add(ws);
+        ws.send(JSON.stringify({ type: 'status', status: 'live', sessionId: targetSessionId }));
+        
+        ws.on('close', () => {
+          session.wsClients?.delete(ws);
+          if (session.wsClients?.size === 0 && session.cdpClient) {
+             session.cdpClient.send('Page.stopScreencast').catch(()=>{});
+             session.cdpClient.detach().catch(()=>{});
+             session.cdpClient = null;
+          }
+        });
+      }
+    } catch(err) {
+      console.error("[Sandbox] WS error", err);
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`[Sandbox] Browser sandbox running on port ${PORT} (HTTP & WS)`);
   console.log(`[Sandbox] Artifacts directory: ${ARTIFACTS_DIR}`);
   console.log(`[Sandbox] Max sessions: ${MAX_SESSIONS}`);
   console.log(`[Sandbox] Session timeout: ${SESSION_TIMEOUT_MS / 1000}s`);

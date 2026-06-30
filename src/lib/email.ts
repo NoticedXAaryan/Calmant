@@ -23,7 +23,7 @@ function checkDailyLimit(): boolean {
     emailsSentToday = 0;
     lastResetDate = today;
   }
-  return emailsSentToday < 90;
+  return emailsSentToday < 95;
 }
 
 export interface EmailResult {

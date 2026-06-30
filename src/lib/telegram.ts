@@ -154,8 +154,32 @@ export async function initTelegram(): Promise<TelegramStatus> {
 
       if (!text.trim()) return;
 
-      const reply = await agentReply(text, userId);
-      await bot!.sendMessage(chatId, reply);
+      const placeholderMsg = await bot!.sendMessage(chatId, "🤔 Analyzing your request...");
+      let isThinking = true;
+      let dotCount = 1;
+      
+      const thinkingInterval = setInterval(() => {
+        if (!isThinking) return;
+        bot!.sendChatAction(chatId, "typing").catch(() => {});
+        dotCount = (dotCount % 3) + 1;
+        const dots = ".".repeat(dotCount);
+        const phrases = ["🤔 Analyzing your request", "🔄 Routing to departments", "🧠 Gathering context", "⚡ Processing"];
+        const phrase = phrases[dotCount % phrases.length];
+        bot!.editMessageText(`${phrase}${dots}`, { chat_id: chatId, message_id: placeholderMsg.message_id }).catch(() => {});
+      }, 4000);
+
+      try {
+        const reply = await agentReply(text, userId);
+        isThinking = false;
+        clearInterval(thinkingInterval);
+        await bot!.deleteMessage(chatId, placeholderMsg.message_id).catch(() => {});
+        await bot!.sendMessage(chatId, reply);
+      } catch (error) {
+        isThinking = false;
+        clearInterval(thinkingInterval);
+        await bot!.deleteMessage(chatId, placeholderMsg.message_id).catch(() => {});
+        throw error;
+      }
     } catch (error) {
       console.error("[Telegram] Error processing message:", error);
       await bot!.sendMessage(chatId, "Sorry, I encountered an error processing your request.");

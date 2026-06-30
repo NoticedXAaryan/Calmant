@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+
+function tooManyRequests(retryAfter: number) {
+  return NextResponse.json(
+    { error: "You're doing that a bit too fast. Please wait a moment and try again.", retryAfter },
+    { status: 429, headers: { "Retry-After": String(retryAfter) } }
+  );
+}
 
 export async function GET() {
   try {
@@ -35,6 +43,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "fact and category are required" }, { status: 400 });
     }
 
+    const rl = await rateLimit({ key: `memory:${userId}`, ...RATE_LIMITS.agentMemory });
+    if (!rl.success) return tooManyRequests(rl.retryAfter);
+
     const validCategories = [
       "preference", "commitment", "pattern", "method",
       "deadline", "relationship", "interaction", "alert",
@@ -67,6 +78,9 @@ export async function DELETE(req: Request) {
     if (!id) {
       return NextResponse.json({ error: "Memory ID required" }, { status: 400 });
     }
+
+    const rl = await rateLimit({ key: `memory:${userId}`, ...RATE_LIMITS.agentMemory });
+    if (!rl.success) return tooManyRequests(rl.retryAfter);
 
     // Verify ownership
     const memory = await prisma.agentMemory.findUnique({

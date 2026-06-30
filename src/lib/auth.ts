@@ -17,21 +17,38 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 6,
-    requireEmailVerification: true,
+    requireEmailVerification: false,
   },
 
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromEmail = process.env.RESEND_FROM_EMAIL || "Calmant <onboarding@resend.dev>";
-      await resend.emails.send({
-        from: fromEmail,
-        to: user.email,
-        subject: "Verify your Calmant account",
-        html: verificationEmailHtml(user.name ?? user.email, url),
-      });
+      console.log(`[Auth] Sending verification email to ${user.email}`);
+      console.log(`[Auth] Verification URL: ${url}`);
+      const apiKey = process.env.RESEND_API_KEY;
+      if (!apiKey) {
+        console.error("[Auth] RESEND_API_KEY is not configured — cannot send verification email");
+        return;
+      }
+      const resend = new Resend(apiKey);
+      const fromAddr = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+      const fromEmail = fromAddr.includes("<") ? fromAddr : `Calmant <${fromAddr}>`;
+      try {
+        const result = await resend.emails.send({
+          from: fromEmail,
+          to: user.email,
+          subject: "Verify your Calmant account",
+          html: verificationEmailHtml(user.name ?? user.email, url),
+        });
+        if (result.error) {
+          console.error("[Auth] Resend error:", result.error);
+        } else {
+          console.log(`[Auth] Verification email sent (id: ${result.data?.id})`);
+        }
+      } catch (err) {
+        console.error("[Auth] Failed to send verification email:", err);
+      }
     },
   },
 

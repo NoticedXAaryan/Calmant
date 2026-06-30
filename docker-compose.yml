@@ -22,6 +22,8 @@ services:
     depends_on:
       sandbox:
         condition: service_healthy
+      hermes:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
@@ -53,8 +55,30 @@ services:
         reservations:
           memory: 512M
 
+  # ── Hermes Agent (Isolated Profiles) ───────────────
+  hermes:
+    build:
+      context: ./hermes-backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - hermes-data:/root/.hermes
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   sandbox-artifacts:
+    driver: local
+  hermes-data:
     driver: local
 
 networks:

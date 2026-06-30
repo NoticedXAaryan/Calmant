@@ -6,6 +6,47 @@ import { getEntropyLevel } from './entropy';
 
 const POLLING_INTERVAL_MS = 5000;
 
+// --- Memory-safe iteration over every user (cursor pagination) ---
+// Without this, `prisma.user.findMany()` loads the entire user table into
+// memory at once — once the app scales past a few hundred active users the
+// Node process OOM-crashes (audit: "Background Worker OOM Crash Risk").
+// Page through users with cursor-based pagination so memory stays bounded
+// regardless of total user count.
+
+const USER_PAGE_SIZE = 100;
+
+/**
+ * Iterate over every user in bounded pages, invoking `fn` once per user.
+ * Each page is fetched only after the previous one finishes processing,
+ * so at most `USER_PAGE_SIZE` users are resident in memory at any time.
+ * Errors thrown by `fn` for a single user are logged but do not abort the
+ * overall iteration — matching the existing per-user resilience.
+ */
+export async function forEachUser(fn: (user: { id: string; name: string | null; email: string }) => Promise<void>) {
+  let cursor: string | undefined;
+  while (true) {
+    const page = await prisma.user.findMany({
+      take: USER_PAGE_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: 'asc' },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (page.length === 0) break;
+
+    for (const user of page) {
+      try {
+        await fn(user);
+      } catch (err: any) {
+        console.error(`[Worker] per-user job failed for ${user.id}:`, err?.message || err);
+      }
+    }
+
+    if (page.length < USER_PAGE_SIZE) break;
+    cursor = page[page.length - 1].id;
+  }
+}
+
 // --- Proactive notification: tasks due within 15 min ---
 
 async function processDueNotifications() {
@@ -159,17 +200,20 @@ async function processSandboxHealthProbe() {
 // --- Morning Briefing ---
 
 async function processMorningBriefing() {
+  const hour = new Date().getHours();
+  if (hour < 6 || hour >= 10) {
+    console.log(`[Worker] Skipping morning-briefing (hour=${hour}, runs 6-10 AM)`);
+    return;
+  }
   console.log('[Worker] Running morning-briefing');
-  const users = await prisma.user.findMany();
-  
-  for (const user of users) {
+  await forEachUser(async (user) => {
     try {
       const tasks = await prisma.task.findMany({
         where: { userId: user.id, status: { in: ['PENDING', 'IN_PROGRESS'] } },
         orderBy: { entropyScore: 'desc' },
       });
       
-      if (tasks.length === 0) continue;
+      if (tasks.length === 0) return;
 
       const overdue = tasks.filter(t => t.deadline < new Date());
       const urgent = tasks.filter(t => t.entropyScore >= 0.7 && t.deadline >= new Date());
@@ -225,20 +269,23 @@ async function processMorningBriefing() {
     } catch (err: any) {
       console.error(`[Worker] Morning briefing failed for user ${user.id}:`, err.message);
     }
-  }
+  });
 }
 
 // --- Evening Review ---
 
 async function processEveningReview() {
+  const hour = new Date().getHours();
+  if (hour < 18 || hour >= 23) {
+    console.log(`[Worker] Skipping evening-review (hour=${hour}, runs 6-11 PM)`);
+    return;
+  }
   console.log('[Worker] Running evening-review');
-  const users = await prisma.user.findMany();
-  
-  for (const user of users) {
+  await forEachUser(async (user) => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const completedTasks = await prisma.task.findMany({
         where: { userId: user.id, status: 'DONE', completedAt: { gte: today } }
       });
@@ -247,7 +294,7 @@ async function processEveningReview() {
         where: { userId: user.id, status: { in: ['PENDING', 'IN_PROGRESS'] } }
       });
       
-      if (completedTasks.length === 0 && pendingTasks.length === 0) continue;
+      if (completedTasks.length === 0 && pendingTasks.length === 0) return;
 
       const lines: string[] = [];
       lines.push(`🌙 Evening review${user.name ? `, ${user.name}` : ''}:\n`);
@@ -292,7 +339,7 @@ async function processEveningReview() {
     } catch (err: any) {
       console.error(`[Worker] Evening review failed for user ${user.id}:`, err.message);
     }
-  }
+  });
 }
 
 // --- Smart-Start Reminders ---
@@ -348,63 +395,7 @@ async function processSmartStartReminders() {
   }
 }
 
-// --- Delegated Task Follow-up ---
-
-async function processDelegatedTaskFollowup() {
-  console.log('[Worker] Running delegated-task-followup');
-  const activeTasks = await prisma.delegatedTask.findMany({
-    where: { status: 'active' },
-    include: { user: true },
-  });
-
-  for (const task of activeTasks) {
-    try {
-      const context = task.context as any;
-      if (!context?.deadline) continue;
-
-      const deadlineDate = new Date(context.deadline);
-      const daysUntil = (deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-
-      if (daysUntil > 0 && daysUntil < 3) {
-        const alreadySent = await prisma.auditEvent.findFirst({
-          where: {
-            userId: task.userId,
-            action: 'delegated_task_followup',
-            targetId: task.id,
-            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60000) },
-          },
-        });
-
-        if (alreadySent) continue;
-
-        const daysStr = daysUntil < 1 ? `${Math.round(daysUntil * 24)} hours` : `${Math.round(daysUntil)} days`;
-        const message = `📋 Reminder: "${task.title}" has a deadline in ${daysStr}. Need me to do anything for this?`;
-
-        const { sendTelegramMessage } = await import('./telegram');
-        await sendTelegramMessage(task.userId, message);
-
-        await prisma.auditEvent.create({
-          data: {
-            userId: task.userId,
-            action: 'delegated_task_followup',
-            targetType: 'delegated_task',
-            targetId: task.id,
-            details: { daysUntil: Math.round(daysUntil * 10) / 10 },
-          },
-        });
-      }
-
-      if (daysUntil < 0) {
-        await prisma.delegatedTask.update({
-          where: { id: task.id },
-          data: { status: 'stale' },
-        });
-      }
-    } catch (err: any) {
-      console.error(`[Worker] Delegated task followup failed for ${task.id}:`, err.message);
-    }
-  }
-}
+// --- Delegated Task Follow-up Removed (Handled by Hermes) ---
 
 // --- Scheduled Reminder ---
 
@@ -462,9 +453,7 @@ async function handleJob(job: any) {
     case 'smart-start-reminders':
       await processSmartStartReminders();
       break;
-    case 'delegated-task-followup':
-      await processDelegatedTaskFollowup();
-      break;
+
     case 'scheduled-reminder':
       await processScheduledReminder(job);
       break;
