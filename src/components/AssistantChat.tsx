@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Sparkles, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import VoiceInput from "./VoiceInput";
 import ReactMarkdown from "react-markdown";
@@ -72,6 +72,8 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -121,20 +123,47 @@ export default function AssistantChat({ userName }: { userName?: string }) {
     return () => clearInterval(interval);
   }, [loading]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File too large. Maximum size is 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachedFile({
+        name: file.name,
+        content: event.target?.result as string,
+      });
+    };
+    reader.readAsText(file);
+    
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      if (!trimmed && !attachedFile) return;
+
+      let finalMessage = trimmed;
+      if (attachedFile) {
+        finalMessage = `[Attached File: ${attachedFile.name}]\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${trimmed}`;
+      }
 
       const userMsg: ChatMessage = {
         id: generateId(),
         role: "user",
-        content: trimmed,
+        content: finalMessage,
         timestamp: Date.now(),
       };
 
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
+      setAttachedFile(null);
       setLoading(true);
 
       // Reset textarea height instantly
@@ -144,7 +173,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
         const res = await fetch("/api/agent/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: trimmed }),
+          body: JSON.stringify({ message: finalMessage }),
         });
         const data = await res.json();
 
@@ -174,7 +203,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 10);
     },
-    [loading]
+    [loading, attachedFile]
   );
 
   const handleSubmit = (e: FormEvent) => {
@@ -329,8 +358,56 @@ export default function AssistantChat({ userName }: { userName?: string }) {
           onSubmit={handleSubmit}
           className="mx-auto w-full max-w-3xl"
         >
+          {/* File Attachment Preview */}
+          <AnimatePresence>
+            {attachedFile && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+                className="mb-3 mx-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm"
+              >
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Paperclip className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{attachedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">Text document attached</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedFile(null)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="relative flex items-end gap-2 rounded-[24px] border border-border/80 bg-card/80 px-4 py-2.5 shadow-sm backdrop-blur-md focus-within:border-foreground/30 focus-within:ring-2 focus-within:ring-foreground/5 transition-all">
             
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept=".txt,.md,.json,.csv,.js,.ts,.tsx,.jsx,.html,.css"
+            />
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              className="mb-1 h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+
             <VoiceInput
               onInterimTranscript={handleInterimTranscript}
               onTranscript={handleVoiceTranscript}
@@ -352,7 +429,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
             <Button
               type="submit"
               size="icon"
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && !attachedFile)}
               className="mb-1 h-9 w-9 shrink-0 rounded-full transition-transform active:scale-95 disabled:opacity-30 disabled:hover:bg-primary"
             >
               <ArrowUp className="h-4 w-4" />

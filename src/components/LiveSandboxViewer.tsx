@@ -3,13 +3,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 
 // For this example, we assume the sandbox is available locally at 4000.
-// In a production deployment, this would be an environment variable.
-let SANDBOX_HTTP_URL = process.env.NEXT_PUBLIC_SANDBOX_URL || 'http://localhost:4000';
+// In a production deployment, this would be an environment variable or routed path.
+let SANDBOX_HTTP_URL = process.env.NEXT_PUBLIC_SANDBOX_URL || (process.env.NODE_ENV === 'production' ? '/sandbox-api' : 'http://localhost:4000');
 let SANDBOX_WS_URL = SANDBOX_HTTP_URL.replace(/^http/, 'ws');
 
 if (typeof window !== 'undefined' && SANDBOX_HTTP_URL.startsWith('/')) {
-  SANDBOX_HTTP_URL = window.location.origin + process.env.NEXT_PUBLIC_SANDBOX_URL;
-  SANDBOX_WS_URL = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + process.env.NEXT_PUBLIC_SANDBOX_URL;
+  SANDBOX_HTTP_URL = window.location.origin + SANDBOX_HTTP_URL;
+  SANDBOX_WS_URL = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + (process.env.NEXT_PUBLIC_SANDBOX_URL || '/sandbox-api');
 }
 
 export function LiveSandboxViewer() {

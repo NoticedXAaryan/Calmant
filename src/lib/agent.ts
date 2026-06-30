@@ -4,7 +4,7 @@ export async function agentReply(message: string, userId: string): Promise<strin
     const res = await fetch(`${url}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, userId }),
+      body: JSON.stringify({ message, user_id: userId }),
     });
     
     if (!res.ok) {
@@ -13,7 +13,7 @@ export async function agentReply(message: string, userId: string): Promise<strin
     }
     
     const data = await res.json();
-    return data.response;
+    return data.reply;
   } catch (err) {
     console.error("[agentReply] Error calling Hermes:", err);
     return "I'm having a little trouble connecting to my brain right now. Try again in a moment!";

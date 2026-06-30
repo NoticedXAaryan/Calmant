@@ -43,7 +43,7 @@ async def chat_endpoint(req: ChatRequest):
         return {"reply": result.stdout.strip()}
     except subprocess.CalledProcessError as e:
         print(f"Hermes execution failed: {e.stderr}")
-        raise HTTPException(status_code=500, detail="Agent execution failed")
+        return {"reply": f"Agent Error: {e.stderr.strip() or 'Unknown execution failure. Code: ' + str(e.returncode)}"}
     except Exception as e:
         print(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
