@@ -115,7 +115,7 @@ async def chat_endpoint(req: ChatRequest):
     async with semaphore:
         try:
             proc = await asyncio.create_subprocess_exec(
-                "hermes", "-z", req.message,
+                "hermes", "--provider", "openrouter", "-z", req.message, "chat",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env
