@@ -142,10 +142,10 @@ async def chat_endpoint(req: ChatRequest):
             # This ensures that even if CLI flags fail to override the profile's saved default,
             # the profile itself is correctly configured.
             subprocess.run([
-                "hermes", "config", "--set", f"model.default={model}"
+                "hermes", "config", "set", "model.default", model
             ], env=env, check=False)
             subprocess.run([
-                "hermes", "config", "--set", f"model.provider={provider}"
+                "hermes", "config", "set", "model.provider", provider
             ], env=env, check=False)
 
             # Use `chat -q` with explicitly passed provider/model
