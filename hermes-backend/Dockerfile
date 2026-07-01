@@ -14,18 +14,18 @@ RUN apt-get update && apt-get install -y \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Install Hermes Agent (using official installer script for linux)
-RUN curl -sL https://hermes-agent.nousresearch.com/install.sh | bash
+# Install Hermes Agent deterministically
+ARG HERMES_COMMIT="3aebdb1d2349f1b228aa0478fce2e2fe91827278"
+RUN curl -sL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --commit "$HERMES_COMMIT" --skip-setup
 
-# Put hermes in PATH. The install script usually places it in ~/.hermes/hermes-agent/venv/bin/hermes
-ENV PATH="/root/.hermes/hermes-agent/venv/bin:$PATH"
+# Verify installation at build time
+RUN which hermes
+RUN hermes --help
 
 # Install FastAPI wrapper dependencies
-RUN pip install fastapi uvicorn pydantic requests psycopg2-binary
+RUN pip install fastapi uvicorn pydantic requests
 
-# Copy custom skills and API wrapper
-COPY sandbox_tools.py /root/.hermes/skills/
-COPY db_tools.py /root/.hermes/skills/
+COPY calmant /root/.hermes/plugins/calmant/
 COPY server.py /app/server.py
 
 # Expose the API port

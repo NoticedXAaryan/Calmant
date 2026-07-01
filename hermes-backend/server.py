@@ -2,46 +2,75 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import hashlib
 import os
-import subprocess
+import asyncio
+from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Hermes Agent Wrapper API")
-
 
 class ChatRequest(BaseModel):
     user_id: str
     message: str
 
-
 PROFILE_PREFIX = "calmant"
 MAX_MESSAGE_CHARS = 16000
 HERMES_TIMEOUT_SECONDS = int(os.environ.get("HERMES_TIMEOUT_SECONDS", "90"))
-
+# Use an asyncio Semaphore to limit concurrent Hermes CLI executions
+CONCURRENCY_LIMIT = int(os.environ.get("HERMES_CONCURRENCY_LIMIT", "5"))
+semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
 def profile_name_for_user(user_id: str) -> str:
     """Return a safe, stable Hermes profile name without exposing raw user IDs."""
     digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:32]
     return f"{PROFILE_PREFIX}-{digest}"
 
-
-def ensure_profile(profile_name: str):
+async def ensure_profile(profile_name: str):
     """Ensures a Hermes profile exists for the given user profile."""
     try:
-        subprocess.run(
-            ["hermes", "profile", "create", profile_name],
-            capture_output=True,
-            check=False,
-            shell=False,
-            env=os.environ.copy(),
-            timeout=30,
+        proc = await asyncio.create_subprocess_exec(
+            "hermes", "profile", "create", profile_name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=os.environ.copy()
         )
+        try:
+            await asyncio.wait_for(proc.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            print(f"Timeout while creating profile {profile_name}")
     except Exception as e:
         print(f"Error ensuring profile {profile_name}: {e}")
-
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
+@app.get("/health/detailed")
+async def health_detailed():
+    """Detailed health check that verifies the Hermes CLI binary is available."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "hermes", "--version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
+        if proc.returncode == 0:
+            return {
+                "status": "ok",
+                "hermes_version": stdout.decode().strip(),
+                "db_connected": "assumed"  # Replace with actual DB check if applicable
+            }
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "error", "detail": "hermes binary returned non-zero"}
+            )
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "detail": str(e)}
+        )
 
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
@@ -52,33 +81,37 @@ async def chat_endpoint(req: ChatRequest):
         raise HTTPException(status_code=413, detail="Message is too large")
 
     profile_name = profile_name_for_user(req.user_id)
-    ensure_profile(profile_name)
+    await ensure_profile(profile_name)
 
-    try:
-        env = os.environ.copy()
-        env["HERMES_PROFILE"] = profile_name
-        env["CALMANT_USER_ID"] = req.user_id
+    env = os.environ.copy()
+    # Still passing this for plugin context, but using -p explicitly for the command
+    env["CALMANT_USER_ID"] = req.user_id
 
-        result = subprocess.run(
-            ["hermes", "-z", req.message],
-            capture_output=True,
-            text=True,
-            check=True,
-            shell=False,
-            env=env,
-            timeout=HERMES_TIMEOUT_SECONDS,
-        )
-        return {"reply": result.stdout.strip()}
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Hermes timed out")
-    except subprocess.CalledProcessError as e:
-        print(f"Hermes execution failed: {e.stderr}")
-        return {
-            "reply": (
-                "Agent Error: "
-                + (e.stderr.strip() or "Unknown execution failure. Code: " + str(e.returncode))
+    async with semaphore:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "hermes", "chat", "-p", profile_name, "-z", req.message,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
-        }
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+            
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=HERMES_TIMEOUT_SECONDS)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                raise HTTPException(status_code=504, detail="Hermes execution timed out")
+
+            if proc.returncode != 0:
+                error_output = stderr.decode().strip() or stdout.decode().strip() or f"Unknown execution failure. Code: {proc.returncode}"
+                print(f"Hermes execution failed: {error_output}")
+                raise HTTPException(status_code=500, detail=f"Agent Error: {error_output}")
+
+            return {"reply": stdout.decode().strip()}
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")

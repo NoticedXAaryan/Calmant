@@ -13,7 +13,7 @@ export interface LLMOptions extends GeminiCallOptions {
   preferLocal?: boolean;  // Force Hermes (privacy mode / offline)
 }
 
-const HERMES_URL = process.env.HERMES_URL || 'http://localhost:11434';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 
 /**
  * Check if Hermes (Ollama) is reachable.
@@ -29,7 +29,7 @@ async function isHermesAvailable(): Promise<boolean> {
   }
 
   try {
-    const res = await fetch(`${HERMES_URL}/api/tags`, {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, {
       signal: AbortSignal.timeout(2000),
     });
     hermesAvailable = res.ok;
@@ -51,7 +51,7 @@ async function hermesChat(prompt: string, systemInstruction?: string): Promise<s
   }
   messages.push({ role: 'user', content: prompt });
 
-  const res = await fetch(`${HERMES_URL}/api/chat`, {
+  const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -164,7 +164,7 @@ export async function getLLMStatus(): Promise<{
     },
     hermes: {
       available: await isHermesAvailable(),
-      url: HERMES_URL,
+      url: OLLAMA_URL,
     },
   };
 }

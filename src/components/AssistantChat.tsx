@@ -175,19 +175,50 @@ export default function AssistantChat({ userName }: { userName?: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: finalMessage }),
         });
-        const data = await res.json();
 
-        const assistantMsg: ChatMessage = {
-          id: generateId(),
-          role: "assistant",
-          content:
-            data.success && data.data?.content
-              ? data.data.content
-              : data.error || "Something went wrong. Try again.",
-          timestamp: Date.now(),
-        };
+        if (!res.ok) {
+          throw new Error("Failed to connect");
+        }
 
-        setMessages((prev) => [...prev, assistantMsg]);
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        let receivedFinalMessage = false;
+
+        if (reader) {
+          let done = false;
+          while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            if (value) {
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const dataStr = line.slice(6).trim();
+                  if (dataStr) {
+                    try {
+                      const data = JSON.parse(dataStr);
+                      if (data.error || data.content) {
+                        receivedFinalMessage = true;
+                        setMessages((prev) => [...prev, {
+                          id: generateId(),
+                          role: "assistant",
+                          content: data.content || data.error,
+                          timestamp: Date.now(),
+                        }]);
+                      }
+                    } catch (e) {}
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (!receivedFinalMessage) {
+          throw new Error("No response received");
+        }
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -221,7 +252,6 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const handleInterimTranscript = (text: string) => {
     setInput(text);
   };
-
   const handleVoiceTranscript = (text: string) => {
     setInput(text);
     if (text.trim()) {

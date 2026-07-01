@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth-utils';
 import { rateLimit, rateLimitKeyFromRequest, RATE_LIMITS } from '@/lib/rate-limit';
-import { agentReply } from '@/lib/agent';
+import { agentReplyStream } from '@/lib/agent';
 
 export const runtime = 'nodejs';
 
@@ -34,11 +34,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const replyText = await agentReply(message, userId);
+    const encoder = new TextEncoder();
+    
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // agentReplyStream yields chunks of the response or status updates
+          for await (const chunk of agentReplyStream(message, userId)) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          }
+        } catch (err: any) {
+          console.error('[POST /api/agent/chat streaming]', err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Agent failed to respond' })}\n\n`));
+        } finally {
+          controller.close();
+        }
+      }
+    });
 
-    return NextResponse.json({
-      success: true,
-      data: { content: replyText }
+    return new NextResponse(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
   } catch (error) {
     console.error('[POST /api/agent/chat]', error);

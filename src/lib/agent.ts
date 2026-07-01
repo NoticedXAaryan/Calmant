@@ -8,7 +8,7 @@ const MAX_AGENT_MESSAGE_CHARS = 8000;
 const HERMES_TIMEOUT_MS = 90_000;
 
 function getHermesUrl() {
-  return (process.env.HERMES_URL || DEFAULT_HERMES_URL).replace(/\/+$/, "");
+  return (process.env.HERMES_AGENT_URL || DEFAULT_HERMES_URL).replace(/\/+$/, "");
 }
 
 function normalizeMessage(message: string) {
@@ -75,5 +75,79 @@ export async function agentReply(message: string, userId: string): Promise<strin
       })
       .catch(() => {});
     return "I'm having trouble connecting to the Hermes agency right now. Try again in a moment.";
+  }
+}
+
+export async function* agentReplyStream(message: string, userId: string): AsyncGenerator<{ content?: string, error?: string, thinking?: boolean }> {
+  const cleanMessage = normalizeMessage(message);
+  if (!cleanMessage) {
+    yield { content: "Send me a task, deadline, question, or plan to work on." };
+    return;
+  }
+
+  const run = await prisma.agentRun.create({
+    data: {
+      userId,
+      prompt: cleanMessage,
+      status: "running",
+    },
+  });
+
+  try {
+    const context = formatContextForPrompt(await buildUserContext(userId));
+    
+    const fetchPromise = fetch(`${getHermesUrl()}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        message: buildHermesPrompt(cleanMessage, context),
+      }),
+      signal: AbortSignal.timeout(HERMES_TIMEOUT_MS),
+    });
+
+    let isDone = false;
+    let reply = "";
+    let fetchError: Error | null = null;
+
+    fetchPromise.then(async (res) => {
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`Hermes HTTP ${res.status}: ${detail || res.statusText}`);
+      }
+      const data = (await res.json()) as { reply?: unknown };
+      reply = typeof data.reply === "string" && data.reply.trim()
+        ? data.reply.trim()
+        : "I could not produce a useful response for that request.";
+      isDone = true;
+    }).catch(err => {
+      fetchError = err;
+      isDone = true;
+    });
+
+    // Mimic stream chunks while staying buffered
+    while (!isDone) {
+      yield { thinking: true };
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (fetchError) throw fetchError;
+
+    await prisma.agentRun.update({
+      where: { id: run.id },
+      data: { response: reply, status: "completed" },
+    });
+
+    yield { content: reply };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("[agentReplyStream] Error calling Hermes:", errorMsg);
+    await prisma.agentRun
+      .update({
+        where: { id: run.id },
+        data: { response: errorMsg, status: "failed" },
+      })
+      .catch(() => {});
+    yield { error: "I'm having trouble connecting to the Hermes agency right now. Try again in a moment." };
   }
 }
