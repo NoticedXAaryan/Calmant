@@ -22,7 +22,7 @@ export async function buildUserContext(userId: string) {
   return { tasks, memories, habits };
 }
 
-export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserContext>>) {
+export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserContext>>, timeZone?: string) {
   const now = new Date();
   
   const timeString = new Intl.DateTimeFormat('en-US', {
@@ -32,6 +32,7 @@ export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserC
     day: 'numeric',
     hour: 'numeric',
     minute: 'numeric',
+    timeZone: timeZone,
     timeZoneName: 'short'
   }).format(now);
 
