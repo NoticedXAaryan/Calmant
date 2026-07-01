@@ -72,6 +72,30 @@ async def health_detailed():
             content={"status": "error", "detail": str(e)}
         )
 
+@app.get("/debug")
+async def debug():
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "hermes", "chat", "--help",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
+        
+        proc2 = await asyncio.create_subprocess_exec(
+            "hermes", "--help",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout2, stderr2 = await asyncio.wait_for(proc2.communicate(), timeout=5)
+
+        return {
+            "chat_help": stdout.decode().strip() + stderr.decode().strip(),
+            "main_help": stdout2.decode().strip() + stderr2.decode().strip()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     if not req.user_id or not req.message:
