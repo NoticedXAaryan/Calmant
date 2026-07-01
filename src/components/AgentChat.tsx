@@ -36,7 +36,10 @@ export default function AgentChat() {
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ 
+          message: userMessage,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        }),
       });
       const data = await res.json();
       if (data.success) {

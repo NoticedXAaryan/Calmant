@@ -24,6 +24,17 @@ export async function buildUserContext(userId: string) {
 
 export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserContext>>) {
   const now = new Date();
+  
+  const timeString = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    timeZoneName: 'short'
+  }).format(now);
+
   const taskLines = ctx.tasks.map(t => {
     const hoursLeft = Math.round((t.deadline.getTime() - now.getTime()) / 3600000);
     return `- "${t.title}" (entropy: ${t.entropyScore.toFixed(2)}, ${hoursLeft}h left, status: ${t.status})`;
@@ -38,7 +49,9 @@ export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserC
   ).join('\n');
 
   return `
-CURRENT USER CONTEXT (${now.toISOString()}):
+CURRENT USER CONTEXT:
+System Time: ${timeString}
+(Note: If the user provides a time, relate it to the system time to understand the offset if necessary.)
 
 ACTIVE TASKS (${ctx.tasks.length}):
 ${taskLines || 'No active tasks.'}

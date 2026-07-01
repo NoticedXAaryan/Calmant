@@ -173,7 +173,10 @@ export default function AssistantChat({ userName }: { userName?: string }) {
         const res = await fetch("/api/agent/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: finalMessage }),
+          body: JSON.stringify({ 
+            message: finalMessage,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          }),
         });
 
         if (!res.ok) {

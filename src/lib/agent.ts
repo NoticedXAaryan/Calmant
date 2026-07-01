@@ -24,7 +24,7 @@ ${message}
 Operate as Calmant's Hermes agency system. Use only the context for this signed-in user. If you need to create, update, or inspect user data, use the available Calmant tools for this same profile instead of guessing.`;
 }
 
-export async function agentReply(message: string, userId: string): Promise<string> {
+export async function agentReply(message: string, userId: string, timeZone?: string): Promise<string> {
   const cleanMessage = normalizeMessage(message);
   if (!cleanMessage) return "Send me a task, deadline, question, or plan to work on.";
 
@@ -37,7 +37,7 @@ export async function agentReply(message: string, userId: string): Promise<strin
   });
 
   try {
-    const context = formatContextForPrompt(await buildUserContext(userId));
+    const context = formatContextForPrompt(await buildUserContext(userId), timeZone);
     const res = await fetch(`${getHermesUrl()}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -78,7 +78,7 @@ export async function agentReply(message: string, userId: string): Promise<strin
   }
 }
 
-export async function* agentReplyStream(message: string, userId: string): AsyncGenerator<{ content?: string, error?: string, thinking?: boolean }> {
+export async function* agentReplyStream(message: string, userId: string, timeZone?: string): AsyncGenerator<{ content?: string, error?: string, thinking?: boolean }> {
   const cleanMessage = normalizeMessage(message);
   if (!cleanMessage) {
     yield { content: "Send me a task, deadline, question, or plan to work on." };
@@ -94,7 +94,7 @@ export async function* agentReplyStream(message: string, userId: string): AsyncG
   });
 
   try {
-    const context = formatContextForPrompt(await buildUserContext(userId));
+    const context = formatContextForPrompt(await buildUserContext(userId), timeZone);
     
     const fetchPromise = fetch(`${getHermesUrl()}/chat`, {
       method: "POST",

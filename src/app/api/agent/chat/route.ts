@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId();
-    const { message } = await request.json();
+    const { message, timeZone } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           // agentReplyStream yields chunks of the response or status updates
-          for await (const chunk of agentReplyStream(message, userId)) {
+          for await (const chunk of agentReplyStream(message, userId, timeZone)) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
           }
         } catch (err: any) {
