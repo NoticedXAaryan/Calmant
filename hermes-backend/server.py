@@ -135,8 +135,19 @@ async def chat_endpoint(req: ChatRequest):
 
     async with semaphore:
         try:
+            provider = os.environ.get("HERMES_PROVIDER", "openrouter")
+            model = os.environ.get("HERMES_INFERENCE_MODEL", "google/gemini-2.5-flash")
+
+            # Use `chat -q` with explicitly passed provider/model
+            cmd = [
+                "hermes",
+                "--provider", provider,
+                "-m", model,
+                "chat", "-q", req.message
+            ]
+
             proc = await asyncio.create_subprocess_exec(
-                "hermes", "--provider", "openrouter", "-z", req.message, "chat",
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env
