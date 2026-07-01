@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import hashlib
 import os
 import asyncio
+import subprocess
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Hermes Agent Wrapper API")
