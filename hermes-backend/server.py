@@ -136,7 +136,7 @@ async def chat_endpoint(req: ChatRequest):
     async with semaphore:
         try:
             provider = os.environ.get("HERMES_PROVIDER", "openrouter")
-            model = os.environ.get("HERMES_INFERENCE_MODEL", "google/gemini-2.5-flash")
+            model = os.environ.get("HERMES_INFERENCE_MODEL", "openrouter/free")
 
             # Use `chat -q` with explicitly passed provider/model
             cmd = [
