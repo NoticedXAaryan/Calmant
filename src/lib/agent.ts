@@ -148,6 +148,6 @@ export async function* agentReplyStream(message: string, userId: string): AsyncG
         data: { response: errorMsg, status: "failed" },
       })
       .catch(() => {});
-    yield { error: "I'm having trouble connecting to the Hermes agency right now. Try again in a moment." };
+    yield { error: `I'm having trouble connecting to the Hermes agency right now. Reason: ${errorMsg}` };
   }
 }
