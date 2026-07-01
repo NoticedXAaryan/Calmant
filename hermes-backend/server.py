@@ -86,11 +86,12 @@ async def chat_endpoint(req: ChatRequest):
     env = os.environ.copy()
     # Still passing this for plugin context, but using -p explicitly for the command
     env["CALMANT_USER_ID"] = req.user_id
+    env["HERMES_PROFILE"] = profile_name
 
     async with semaphore:
         try:
             proc = await asyncio.create_subprocess_exec(
-                "hermes", "chat", "-p", profile_name, "-z", req.message,
+                "hermes", "-z", req.message,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=env
