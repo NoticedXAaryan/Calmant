@@ -23,12 +23,12 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { label: "What's on my plate today?", message: "What does my day look like?", emoji: "📋" },
-  { label: "Schedule a meeting", message: "I need to schedule a meeting", emoji: "📅" },
-  { label: "Add a new task", message: "I need to add a new task", emoji: "➕" },
-  { label: "Summarize a webpage", message: "Can you summarize a webpage for me?", emoji: "🔍" },
-  { label: "Help me write something", message: "I need help writing a document", emoji: "✍️" },
-  { label: "Check my calendar", message: "Check my calendar for the next few days", emoji: "🗓️" },
+  { label: "Plan my day", message: "Plan my day", emoji: "📋" },
+  { label: "Capture these tasks", message: "I need to capture some tasks", emoji: "➕" },
+  { label: "Show risky deadlines", message: "Show my risky deadlines", emoji: "🚨" },
+  { label: "Create a reminder rule", message: "Create a reminder rule", emoji: "⏰" },
+  { label: "What do you remember about me?", message: "What do you remember about me?", emoji: "🧠" },
+  { label: "Open browser and research...", message: "Open browser and research...", emoji: "🌐" },
 ];
 
 const STORAGE_KEY = "calmant_chat_history";

@@ -41,6 +41,8 @@ export const metadata: Metadata = {
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { CookieConsent } from "@/components/CookieConsent";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 // Initialize BullMQ workers
 if (typeof window === "undefined") {
@@ -61,8 +63,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <CookieConsent />
+          <TooltipProvider>
+            {children}
+            <CookieConsent />
+            <Toaster />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>
