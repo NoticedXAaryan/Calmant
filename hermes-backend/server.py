@@ -4,6 +4,7 @@ import hashlib
 import os
 import asyncio
 import subprocess
+import re
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Hermes Agent Wrapper API")
@@ -23,6 +24,22 @@ def profile_name_for_user(user_id: str) -> str:
     """Return a safe, stable Hermes profile name without exposing raw user IDs."""
     digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:32]
     return f"{PROFILE_PREFIX}-{digest}"
+
+def extract_agent_reply(output_str: str) -> str:
+    """Extracts the agent's reply from the Hermes CLI output, stripping the terminal UI box."""
+    match = re.search(r'╭─ ⚕ Hermes.*?╮\r?\n(.*?)\r?\n╰─', output_str, re.DOTALL)
+    if match:
+        content = match.group(1)
+        lines = content.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.rstrip('\r')
+            if line.startswith('    '):
+                cleaned_lines.append(line[4:])
+            else:
+                cleaned_lines.append(line)
+        return '\n'.join(cleaned_lines).strip()
+    return output_str.strip()
 
 async def ensure_profile(profile_name: str):
     """Ensures a Hermes profile exists for the given user profile."""
@@ -176,7 +193,8 @@ async def chat_endpoint(req: ChatRequest):
                 print(f"Hermes execution failed: {error_output}")
                 raise HTTPException(status_code=500, detail=f"Agent Error: {error_output}")
 
-            return {"reply": stdout.decode().strip()}
+            clean_reply = extract_agent_reply(stdout.decode())
+            return {"reply": clean_reply}
 
         except HTTPException:
             raise
