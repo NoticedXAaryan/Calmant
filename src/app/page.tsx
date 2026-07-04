@@ -41,7 +41,7 @@ export default function LandingPage() {
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
         {/* Subtle ambient glow in background */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
-        
+
         <div className="mx-auto max-w-6xl px-6 relative z-10 grid gap-16 lg:grid-cols-2 lg:items-center">
           <div className="max-w-xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary mb-8">
@@ -72,7 +72,7 @@ export default function LandingPage() {
             {/* The "Device" Frame */}
             <div className="relative rounded-2xl border border-border/50 bg-surface/50 p-2 shadow-2xl backdrop-blur-xl">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-background/80 to-surface/80" />
-              
+
               {/* Inner Screen */}
               <div className="relative rounded-xl border border-border/80 bg-background overflow-hidden flex flex-col h-[500px]">
                 {/* Header */}
@@ -99,11 +99,11 @@ export default function LandingPage() {
                         <span className="text-muted-foreground">Due 6:00 PM</span>
                       </div>
                     </div>
-                    
+
                     <div className="mt-5 border-t border-accent/10 pt-4">
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2">Next Autonomous Action</div>
                       <p className="text-sm text-foreground/90 leading-relaxed">
-                        Intel agent has scraped Q2 metrics. Focus block scheduled for 4:00 PM. <br/>
+                        Intel agent has scraped Q2 metrics. Focus block scheduled for 4:00 PM. <br />
                         <span className="font-medium text-primary mt-1 inline-block">→ Drafting email outline now.</span>
                       </p>
                     </div>
@@ -156,7 +156,7 @@ export default function LandingPage() {
                 Speak or type exactly what's in your head. Our AI extracts the intent, deadline, and effort without requiring you to fill out 6 different form fields.
               </p>
             </div>
-            
+
             <div className="space-y-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6">
                 <ShieldCheck className="h-5 w-5" />
@@ -166,7 +166,7 @@ export default function LandingPage() {
                 If the input is ambiguous, the system slows down. It asks targeted questions rather than guessing, preventing phantom 2 AM deadlines.
               </p>
             </div>
-            
+
             <div className="space-y-4">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6">
                 <Zap className="h-5 w-5" />
@@ -185,7 +185,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="grid lg:grid-cols-12 gap-16">
             <div className="lg:col-span-5">
-              <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6">7 Departments.<br/>1 CEO.</h2>
+              <h2 className="text-3xl md:text-5xl font-medium tracking-tight mb-6">7 Departments.<br />1 CEO.</h2>
               <p className="text-lg text-muted-foreground leading-relaxed font-light mb-8">
                 Every request is routed by the CEO to specialized AI workers running in the background. You never have to manually trigger a workflow.
               </p>
@@ -195,7 +195,7 @@ export default function LandingPage() {
                 </Button>
               </Link>
             </div>
-            
+
             <div className="lg:col-span-7">
               <div className="grid sm:grid-cols-2 gap-x-8 gap-y-12">
                 <div>
