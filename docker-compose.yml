@@ -11,14 +11,11 @@ services:
     env_file:
       - .env
     environment:
-      - HERMES_URL=http://hermes:8000
       - SANDBOX_URL=http://sandbox:4000
       - NEXT_PUBLIC_SANDBOX_URL=/sandbox-api
       - HOSTNAME=0.0.0.0
     depends_on:
       sandbox:
-        condition: service_healthy
-      hermes:
         condition: service_healthy
     labels:
       - traefik.enable=true
@@ -61,33 +58,8 @@ services:
         reservations:
           memory: 512M
 
-  # ── Hermes Agent (Isolated Profiles) ───────────────
-  hermes:
-    build:
-      context: ./hermes-backend
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    environment:
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - HERMES_PROVIDER=openrouter
-      - HERMES_INFERENCE_MODEL=openrouter/free
-      - DATABASE_URL=${DATABASE_URL}
-      - SANDBOX_URL=http://sandbox:4000
-      - HERMES_INTERNAL_API_SECRET=${HERMES_INTERNAL_API_SECRET}
-      - WEB_URL=http://web:3000
-    volumes:
-      - hermes-data:/root/.hermes
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
 volumes:
   sandbox-artifacts:
-    driver: local
-  hermes-data:
     driver: local
 
 networks:
