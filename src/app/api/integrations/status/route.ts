@@ -19,7 +19,7 @@ export async function GET() {
   const whatsappHealth = await checkWhatsAppHealth(userId);
   const inAppHealth = checkInAppHealth();
 
-  const notifications = getNotificationStatus();
+  const notifications = userId ? await getNotificationStatus(userId) : { unreadCount: 0, inAppQueueSize: 0 };
 
   return NextResponse.json({
     success: true,

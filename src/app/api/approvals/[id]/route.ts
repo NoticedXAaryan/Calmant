@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth-utils";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -14,8 +14,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
     }
 
+    const { id } = await params;
     const approval = await prisma.approvalRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!approval || approval.userId !== sessionUser.id) {

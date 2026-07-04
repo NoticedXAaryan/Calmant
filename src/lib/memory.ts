@@ -40,7 +40,7 @@ export function getMemory(): Memory {
  */
 export async function addMemory(text: string, userId: string): Promise<void> {
   const memory = getMemory();
-  await memory.add(text, { user_id: userId });
+  await memory.add(text, { userId });
 }
 
 /**
@@ -49,8 +49,8 @@ export async function addMemory(text: string, userId: string): Promise<void> {
  */
 export async function searchMemory(query: string, userId: string, limit = 15): Promise<string[]> {
   const memory = getMemory();
-  const results = await memory.search(query, { user_id: userId, limit });
-  return results.map((r: any) => r.memory || r.text || String(r));
+  const searchRes = await memory.search(query, { filters: { user_id: userId }, topK: limit });
+  return searchRes.results.map((r: any) => r.memory || r.text || String(r));
 }
 
 /**
@@ -58,6 +58,6 @@ export async function searchMemory(query: string, userId: string, limit = 15): P
  */
 export async function getAllMemories(userId: string): Promise<string[]> {
   const memory = getMemory();
-  const results = await memory.getAll({ user_id: userId });
-  return results.map((r: any) => r.memory || r.text || String(r));
+  const searchRes = await memory.getAll({ filters: { user_id: userId } });
+  return searchRes.results.map((r: any) => r.memory || r.text || String(r));
 }
