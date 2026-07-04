@@ -20,7 +20,7 @@ describe('Entropy Calculation', () => {
       completedAt: null,
       delegatedToId: null,
       delegatedStatus: null,
-    } as Task;
+    } as unknown as Task;
 
     expect(calculateEntropy(task)).toBe(0.99);
   });
@@ -42,7 +42,7 @@ describe('Entropy Calculation', () => {
       completedAt: null,
       delegatedToId: null,
       delegatedStatus: null,
-    } as Task;
+    } as unknown as Task;
 
     const entropy = calculateEntropy(task);
     expect(entropy).toBeGreaterThan(0.8);
@@ -66,10 +66,10 @@ describe('Entropy Calculation', () => {
       completedAt: null,
       delegatedToId: null,
       delegatedStatus: null,
-    } as Task;
+    } as unknown as Task;
 
     const entropySnoozed = calculateEntropy(task);
-    const entropyNormal = calculateEntropy({ ...task, snoozeCount: 0 } as Task);
+    const entropyNormal = calculateEntropy({ ...task, snoozeCount: 0 } as unknown as Task);
     
     expect(entropySnoozed).toBeGreaterThan(entropyNormal);
   });

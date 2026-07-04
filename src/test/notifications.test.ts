@@ -31,19 +31,19 @@ describe('Notifications Dispatch', () => {
       id: 't1',
       title: 'Urgent Task',
       userId: 'u1',
-    } as Task;
+    } as unknown as Task;
 
     vi.mocked(telegram.sendTelegramMessage).mockResolvedValue(false); // Telegram fails/not connected
     vi.mocked(email.isEmailConfigured).mockReturnValue(true);
     vi.mocked(alertPolicy.evaluateAlertPolicy).mockResolvedValue({ allowed: true });
     
-    vi.mocked(email.criticalAlertEmail).mockReturnValue({ subject: 'subj', html: 'html', text: 'text' });
+    vi.mocked(email.criticalAlertEmail).mockReturnValue({ subject: 'subj', html: 'html' });
     vi.mocked(email.sendEmail).mockResolvedValue({ sent: true, id: 'msg-id-123' });
 
     // @ts-expect-error mock
     prisma.notificationDelivery.create.mockResolvedValue({ id: 'del-1' });
 
-    const results = await notifyCriticalTasks('u1', [task], 'test@example.com');
+    const results = await notifyCriticalTasks('u1', [task as any], 'test@example.com');
     
     // In-app should be sent
     const unread = getUnreadNotifications();
@@ -79,14 +79,14 @@ describe('Notifications Dispatch', () => {
       id: 't2',
       title: 'Urgent Task',
       userId: 'u1',
-    } as Task;
+    } as unknown as Task;
 
     vi.mocked(telegram.sendTelegramMessage).mockResolvedValue(true); 
     
     // @ts-expect-error mock
     prisma.notificationDelivery.create.mockResolvedValue({ id: 'del-2' });
 
-    const results = await notifyCriticalTasks('u1', [task], 'test@example.com');
+    const results = await notifyCriticalTasks('u1', [task as any], 'test@example.com');
     
     expect(results).toContainEqual({ channel: 'telegram', sent: true });
     
