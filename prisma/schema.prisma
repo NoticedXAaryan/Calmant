@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 model User {
@@ -32,6 +34,8 @@ model User {
   artifacts              Artifact[]
   departmentRuns         DepartmentRun[]
   watchers               Watcher[]
+  approvalRequests       ApprovalRequest[]
+  inAppNotifications     InAppNotification[]
 }
 
 model Task {
@@ -151,6 +155,9 @@ model IntegrationConnection {
   provider      String // email | google_calendar | telegram | whatsapp | ntfy
   status        String // not_configured | configured | connected | live_verified | degraded
   externalId    String?
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
   metadata      Json?
   lastCheckedAt DateTime?
   lastSuccessAt DateTime?
@@ -159,6 +166,8 @@ model IntegrationConnection {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
 }
 
 model NotificationDelivery {
@@ -240,6 +249,34 @@ model DelegatedTask {
   status    String   @default("active") // active | paused | completed | cancelled
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ApprovalRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String    // "email", "post", "form_submission", "calendar_event"
+  title       String
+  description String
+  payload     Json      // The full action payload to execute on approval
+  status      String    @default("pending") // pending, approved, rejected, executed
+  agentRunId  String?   // Link to the agent run that created this
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+  executedAt  DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InAppNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  taskId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

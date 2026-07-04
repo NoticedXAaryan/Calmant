@@ -89,8 +89,7 @@ export default function AutomationStudioPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-5 md:px-8 md:py-8">
+    <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-6">
         <header className="flex flex-col gap-4 border-b border-border pb-5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -187,7 +186,6 @@ export default function AutomationStudioPage() {
             </TabsContent>
           </Tabs>
         ) : null}
-      </div>
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Flame, Target, X, Check } from "lucide-react";
 import type { Habit } from "@/lib/types";
 import { format, subDays, isSameDay } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const HABIT_EMOJIS = ["📚", "🏃", "💧", "🧘", "✍️", "🎵", "💪", "🥗", "😴", "🧠"];
 
@@ -29,7 +32,6 @@ export default function HabitsPage() {
   };
 
   useEffect(() => {
-     
     fetchHabits();
   }, []);
 
@@ -93,49 +95,42 @@ export default function HabitsPage() {
   });
 
   const getHeatColor = (ratio: number) => {
-    if (ratio === 0) return "var(--color-surface-3)";
-    if (ratio < 0.25) return "rgba(16, 185, 129, 0.2)";
-    if (ratio < 0.5) return "rgba(16, 185, 129, 0.4)";
-    if (ratio < 0.75) return "rgba(16, 185, 129, 0.6)";
-    return "rgba(16, 185, 129, 0.9)";
+    if (ratio === 0) return "bg-muted"; 
+    if (ratio < 0.25) return "bg-emerald-500/20";
+    if (ratio < 0.5) return "bg-emerald-500/40";
+    if (ratio < 0.75) return "bg-emerald-500/60";
+    return "bg-emerald-500/90";
   };
 
-  // Group heatmap by weeks
   const weeks: typeof heatmapData[] = [];
   for (let i = 0; i < heatmapData.length; i += 7) {
     weeks.push(heatmapData.slice(i, i + 7));
   }
 
   return (
-    <div style={{ maxWidth: "900px" }}>
+    <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-6">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+      <div className="flex justify-between items-center mb-7">
         <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, margin: 0 }}>
-            <span className="gradient-text">Habits</span>
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "var(--color-text-muted)", fontSize: "14px" }}>
+          <h1 className="text-3xl font-extrabold tracking-tight">Habits</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Build consistency, track streaks, own your day
           </p>
         </div>
-        <button
-          className="btn-primary"
-          onClick={() => setShowAdd(true)}
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
-        >
+        <Button onClick={() => setShowAdd(true)} className="flex items-center gap-2">
           <Plus size={16} /> Add Habit
-        </button>
+        </Button>
       </div>
 
       {/* Heatmap */}
       {habits.length > 0 && (
-        <div className="glass-card-static" style={{ padding: "24px", marginBottom: "24px" }}>
-          <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "16px", color: "var(--color-text-secondary)" }}>
+        <div className="rounded-xl border bg-card p-6 shadow-sm mb-6">
+          <div className="text-sm font-semibold mb-4 text-muted-foreground">
             Consistency Heatmap
           </div>
-          <div style={{ display: "flex", gap: "3px", overflow: "auto", paddingBottom: "8px" }}>
+          <div className="flex gap-[3px] overflow-x-auto pb-2">
             {weeks.map((week, wi) => (
-              <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <div key={wi} className="flex flex-col gap-[3px]">
                 {week.map((day) => (
                   <motion.div
                     key={day.dateKey}
@@ -143,25 +138,20 @@ export default function HabitsPage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: wi * 0.02 }}
                     title={`${day.dateKey}: ${Math.round(day.ratio * 100)}% complete`}
-                    style={{
-                      width: "14px",
-                      height: "14px",
-                      borderRadius: "3px",
-                      background: getHeatColor(day.ratio),
-                      cursor: "pointer",
-                      border: isSameDay(day.date, new Date()) ? "2px solid var(--color-agent-primary)" : "none",
-                    }}
+                    className={`w-[14px] h-[14px] rounded-[3px] cursor-pointer ${
+                      isSameDay(day.date, new Date()) ? "border-2 border-primary" : ""
+                    } ${getHeatColor(day.ratio)}`}
                   />
                 ))}
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "12px", fontSize: "11px", color: "var(--color-text-muted)" }}>
+          <div className="flex items-center gap-1.5 mt-3 text-[11px] text-muted-foreground">
             <span>Less</span>
             {[0, 0.25, 0.5, 0.75, 1].map((r) => (
               <div
                 key={r}
-                style={{ width: "12px", height: "12px", borderRadius: "2px", background: getHeatColor(r) }}
+                className={`w-3 h-3 rounded-[2px] ${getHeatColor(r)}`}
               />
             ))}
             <span>More</span>
@@ -170,26 +160,28 @@ export default function HabitsPage() {
       )}
 
       {/* Today's Habits */}
-      <div style={{ marginBottom: "16px" }}>
-        <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "var(--color-text-secondary)" }}>
+      <div className="mb-4">
+        <h2 className="text-base font-bold text-muted-foreground">
           Today — {format(new Date(), "EEEE, MMM d")}
         </h2>
       </div>
 
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: "72px" }} />)}
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => (
+             <div key={i} className="animate-pulse bg-muted rounded-xl h-[72px]" />
+          ))}
         </div>
       ) : habits.length === 0 ? (
-        <div className="glass-card-static" style={{ padding: "60px 20px", textAlign: "center" }}>
-          <Target size={48} color="var(--color-text-muted)" style={{ marginBottom: "16px", opacity: 0.3 }} />
-          <h3 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 8px" }}>No habits yet</h3>
-          <p style={{ color: "var(--color-text-muted)", fontSize: "14px", margin: 0 }}>
+        <div className="rounded-xl border bg-card p-[60px_20px] text-center shadow-sm">
+          <Target size={48} className="mx-auto mb-4 text-muted-foreground opacity-30" />
+          <h3 className="text-lg font-bold mb-2">No habits yet</h3>
+          <p className="text-sm text-muted-foreground">
             Start building consistency with your first daily habit
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div className="flex flex-col gap-2.5">
           <AnimatePresence>
             {habits.map((habit) => {
               const isDoneToday = habit.completions[today];
@@ -200,69 +192,48 @@ export default function HabitsPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className={`glass-card ${isDoneToday ? "entropy-glow-cool" : ""}`}
-                  style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: "16px" }}
+                  className={`rounded-xl border bg-card p-[18px_20px] flex items-center gap-4 shadow-sm ${
+                    isDoneToday ? "border-emerald-500/20 bg-emerald-500/5" : ""
+                  }`}
                 >
                   {/* Toggle */}
                   <motion.button
                     whileTap={{ scale: 0.85 }}
                     onClick={() => toggleHabit(habit.id)}
-                    style={{
-                      width: "44px",
-                      height: "44px",
-                      borderRadius: "12px",
-                      border: isDoneToday ? "2px solid var(--color-entropy-cool)" : "2px solid var(--color-surface-4)",
-                      background: isDoneToday ? "rgba(16, 185, 129, 0.1)" : "transparent",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      fontSize: "20px",
-                      transition: "all 0.2s ease",
-                    }}
+                    className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${
+                      isDoneToday
+                        ? "border-emerald-500 bg-emerald-500/10 text-emerald-500"
+                        : "border-border bg-transparent"
+                    }`}
                   >
-                    {isDoneToday ? <Check size={20} color="var(--color-entropy-cool)" /> : habit.emoji}
+                    {isDoneToday ? <Check size={20} /> : habit.emoji}
                   </motion.button>
 
                   {/* Info */}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "15px", fontWeight: 600, textDecoration: isDoneToday ? "none" : "none" }}>
-                      {habit.name}
-                    </div>
-                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "2px" }}>
+                  <div className="flex-1">
+                    <div className="text-[15px] font-semibold">{habit.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {habit.frequency} • Created {format(new Date(habit.createdAt), "MMM d")}
                     </div>
                   </div>
 
                   {/* Streak */}
                   {habit.streak > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "6px 14px",
-                        borderRadius: "999px",
-                        background: "rgba(245, 158, 11, 0.1)",
-                        border: "1px solid rgba(245, 158, 11, 0.2)",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        color: "var(--color-entropy-warm)",
-                      }}
-                    >
+                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[13px] font-bold text-amber-500">
                       <Flame size={14} />
                       {habit.streak}
                     </div>
                   )}
 
                   {/* Delete */}
-                  <button
-                    className="btn-ghost"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => deleteHabit(habit.id)}
-                    style={{ color: "var(--color-text-muted)" }}
+                    className="text-muted-foreground"
                   >
                     <X size={16} />
-                  </button>
+                  </Button>
                 </motion.div>
               );
             })}
@@ -271,83 +242,58 @@ export default function HabitsPage() {
       )}
 
       {/* Add Habit Modal */}
-      <AnimatePresence>
-        {showAdd && (
-          <motion.div
-            className="modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowAdd(false)}
-          >
-            <motion.div
-              className="modal-content"
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                <h2 style={{ fontSize: "20px", fontWeight: 700, margin: 0 }}>New Habit</h2>
-                <button className="btn-ghost" onClick={() => setShowAdd(false)}>
-                  <X size={20} />
-                </button>
-              </div>
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Habit</DialogTitle>
+          </DialogHeader>
 
-              <div style={{ marginBottom: "20px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Habit Name
-                </label>
-                <input
-                  className="input-field"
-                  type="text"
-                  placeholder='e.g., "Read 30 minutes"'
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addHabit()}
-                  autoFocus
-                />
-              </div>
+          <div className="space-y-6 pt-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 block">
+                Habit Name
+              </label>
+              <Input
+                placeholder='e.g., "Read 30 minutes"'
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addHabit()}
+                autoFocus
+              />
+            </div>
 
-              <div style={{ marginBottom: "28px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Choose Emoji
-                </label>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {HABIT_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => setNewEmoji(emoji)}
-                      style={{
-                        width: "44px",
-                        height: "44px",
-                        borderRadius: "10px",
-                        border: newEmoji === emoji ? "2px solid var(--color-agent-primary)" : "2px solid transparent",
-                        background: newEmoji === emoji ? "var(--color-agent-glow)" : "var(--color-surface-2)",
-                        fontSize: "20px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 block">
+                Choose Emoji
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {HABIT_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => setNewEmoji(emoji)}
+                    className={`w-11 h-11 rounded-lg border-2 text-xl flex items-center justify-center transition-all ${
+                      newEmoji === emoji
+                        ? "border-primary bg-primary/10"
+                        : "border-transparent bg-muted"
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-                <button className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button className="btn-primary" onClick={addHabit} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Plus size={16} /> Add Habit
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+              <Button onClick={addHabit} className="flex items-center gap-2">
+                <Plus size={16} /> Add Habit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -6,22 +6,8 @@ import { getEntropyLevel } from './entropy';
 
 const POLLING_INTERVAL_MS = 5000;
 
-// --- Memory-safe iteration over every user (cursor pagination) ---
-// Without this, `prisma.user.findMany()` loads the entire user table into
-// memory at once — once the app scales past a few hundred active users the
-// Node process OOM-crashes (audit: "Background Worker OOM Crash Risk").
-// Page through users with cursor-based pagination so memory stays bounded
-// regardless of total user count.
-
 const USER_PAGE_SIZE = 100;
 
-/**
- * Iterate over every user in bounded pages, invoking `fn` once per user.
- * Each page is fetched only after the previous one finishes processing,
- * so at most `USER_PAGE_SIZE` users are resident in memory at any time.
- * Errors thrown by `fn` for a single user are logged but do not abort the
- * overall iteration — matching the existing per-user resilience.
- */
 export async function forEachUser(fn: (user: { id: string; name: string | null; email: string }) => Promise<void>) {
   let cursor: string | undefined;
   while (true) {
@@ -46,8 +32,6 @@ export async function forEachUser(fn: (user: { id: string; name: string | null; 
     cursor = page[page.length - 1].id;
   }
 }
-
-// --- Proactive notification: tasks due within 15 min ---
 
 async function processDueNotifications() {
   console.log('[Worker] Running due-notification-sender');
@@ -75,8 +59,6 @@ async function processDueNotifications() {
   }
 }
 
-// --- Entropy score refresh ---
-
 async function processEntropyRefresh() {
   console.log('[Worker] Running entropy-refresh');
   const tasks = await prisma.task.findMany({
@@ -87,11 +69,11 @@ async function processEntropyRefresh() {
     const timeToDeadline = task.deadline.getTime() - Date.now();
     let newEntropy = task.entropyScore;
     
-    if (timeToDeadline < 0) { // Overdue
+    if (timeToDeadline < 0) {
       newEntropy = 1.0;
-    } else if (timeToDeadline < 3600000) { // < 1 hr
+    } else if (timeToDeadline < 3600000) {
       newEntropy = Math.min(1.0, newEntropy + 0.1);
-    } else if (timeToDeadline < 86400000) { // < 24 hrs
+    } else if (timeToDeadline < 86400000) {
       newEntropy = Math.min(1.0, newEntropy + 0.02);
     }
     
@@ -103,8 +85,6 @@ async function processEntropyRefresh() {
     }
   }
 }
-
-// --- Integration health probes ---
 
 async function processProviderHealthProbe() {
   console.log('[Worker] Running provider-health-probe');
@@ -157,8 +137,6 @@ async function processProviderHealthProbe() {
   }
 }
 
-// --- Sandbox health probe ---
-
 async function processSandboxHealthProbe() {
   console.log('[Worker] Running sandbox-health-probe');
   const sandboxUrl = process.env.SANDBOX_URL || 'http://localhost:4000';
@@ -178,8 +156,6 @@ async function processSandboxHealthProbe() {
     console.warn('[Worker] Sandbox unreachable:', err.message);
   }
 }
-
-// --- Morning Briefing ---
 
 async function processMorningBriefing() {
   const hour = new Date().getHours();
@@ -254,8 +230,6 @@ async function processMorningBriefing() {
   });
 }
 
-// --- Evening Review ---
-
 async function processEveningReview() {
   const hour = new Date().getHours();
   if (hour < 18 || hour >= 23) {
@@ -324,9 +298,6 @@ async function processEveningReview() {
   });
 }
 
-// --- Smart-Start Reminders ---
-// "You should start X in 30 minutes to finish by your deadline"
-
 async function processSmartStartReminders() {
   console.log('[Worker] Running smart-start-reminders');
   const now = Date.now();
@@ -377,9 +348,54 @@ async function processSmartStartReminders() {
   }
 }
 
-// --- Delegated Task Follow-up Removed (Handled by Hermes) ---
+async function processCalendarSync() {
+  console.log('[Worker] Running calendar-sync');
+  
+  const connections = await prisma.integrationConnection.findMany({
+    where: { provider: 'google_calendar', status: 'connected' },
+  });
 
-// --- Scheduled Reminder ---
+  for (const conn of connections) {
+    try {
+      const { executeGetCalendarEvents } = await import('./tools/google-calendar');
+      const eventsText = await executeGetCalendarEvents(
+        { timeMin: new Date().toISOString(), timeMax: new Date(Date.now() + 24 * 3600000).toISOString(), maxResults: 10 },
+        { cwd: process.cwd(), env: process.env as Record<string, string>, userId: conn.userId } as any
+      );
+      
+      console.log(`[Worker] Sync events for user ${conn.userId}: ${eventsText.length} bytes`);
+    } catch (err: any) {
+      console.error(`[Worker] Calendar sync failed for user ${conn.userId}:`, err.message);
+    }
+  }
+}
+
+async function processOverdueEscalation() {
+  console.log('[Worker] Running overdue-escalation');
+  const oneHourAgo = new Date(Date.now() - 3600000);
+  
+  const overdueTasks = await prisma.task.findMany({
+    where: {
+      status: { in: ['PENDING', 'IN_PROGRESS'] },
+      deadline: { lt: oneHourAgo },
+      OR: [
+        { lastAlertedAt: { lt: oneHourAgo } },
+        { lastAlertedAt: null }
+      ]
+    },
+    include: { user: true },
+  });
+
+  for (const task of overdueTasks) {
+    if (task.user.email) {
+      await notifyCriticalTasks(task.userId, [task as any], task.user.email);
+    }
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { lastAlertedAt: new Date(), snoozeCount: { increment: 1 } },
+    });
+  }
+}
 
 async function processScheduledReminder(job: any) {
   console.log('[Worker] Running scheduled-reminder');
@@ -410,8 +426,6 @@ async function processScheduledReminder(job: any) {
   }
 }
 
-// --- Job Router ---
-
 async function handleJob(job: any) {
   switch (job.name) {
     case 'due-notification-sender':
@@ -435,7 +449,12 @@ async function handleJob(job: any) {
     case 'smart-start-reminders':
       await processSmartStartReminders();
       break;
-
+    case 'calendar-sync':
+      await processCalendarSync();
+      break;
+    case 'overdue-escalation':
+      await processOverdueEscalation();
+      break;
     case 'scheduled-reminder':
       await processScheduledReminder(job);
       break;
@@ -443,8 +462,6 @@ async function handleJob(job: any) {
       console.warn(`[Worker] Unknown job name: ${job.name}`);
   }
 }
-
-// --- Job Poller with exponential backoff + jitter ---
 
 export async function pollJobs() {
   try {
@@ -485,7 +502,6 @@ export async function pollJobs() {
           data: { status: 'failed', attempts, lastError: err.message }
         });
       } else {
-        // Exponential backoff with jitter
         const backoffMs = Math.min(
           10000 * Math.pow(2, attempts) + Math.random() * 5000,
           300000

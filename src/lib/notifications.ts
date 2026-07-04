@@ -30,45 +30,47 @@ interface InAppNotification {
   read: boolean;
 }
 
-const inAppQueue: InAppNotification[] = [];
-
-export function getInAppNotifications(since?: string): InAppNotification[] {
-  if (since) {
-    const sinceTime = new Date(since).getTime();
-    return inAppQueue.filter(n => new Date(n.timestamp).getTime() > sinceTime);
-  }
-  return [...inAppQueue];
+export async function getInAppNotifications(userId: string, since?: string) {
+  return await prisma.inAppNotification.findMany({
+    where: {
+      userId,
+      ...(since ? { createdAt: { gt: new Date(since) } } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
 }
 
-export function getUnreadNotifications(): InAppNotification[] {
-  return inAppQueue.filter(n => !n.read);
+export async function getUnreadNotifications(userId: string) {
+  return await prisma.inAppNotification.findMany({
+    where: { userId, read: false },
+    orderBy: { createdAt: 'desc' },
+  });
 }
 
-export function markNotificationRead(id: string): void {
-  const notification = inAppQueue.find(n => n.id === id);
-  if (notification) {
-    notification.read = true;
-  }
+export async function markNotificationRead(id: string) {
+  await prisma.inAppNotification.update({
+    where: { id },
+    data: { read: true },
+  });
 }
 
-export function markAllRead(): void {
-  inAppQueue.forEach(n => { n.read = true; });
+export async function markAllRead(userId: string) {
+  await prisma.inAppNotification.updateMany({
+    where: { userId, read: false },
+    data: { read: true },
+  });
 }
 
-function pushInApp(type: NotificationType, title: string, message: string, taskId?: string): void {
-  // Keep queue to last 50 notifications
-  if (inAppQueue.length >= 50) {
-    inAppQueue.shift();
-  }
-
-  inAppQueue.push({
-    id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    type,
-    title,
-    message,
-    taskId,
-    timestamp: new Date().toISOString(),
-    read: false,
+async function pushInApp(userId: string, type: NotificationType, title: string, message: string, taskId?: string) {
+  await prisma.inAppNotification.create({
+    data: {
+      userId,
+      type,
+      title,
+      message,
+      taskId,
+    }
   });
 }
 
@@ -90,7 +92,8 @@ export async function notifyCriticalTasks(userId: string, tasks: Task[], userEma
 
   // Level 0: In-app notification (always)
   const taskNames = tasks.slice(0, 3).map(t => t.title).join(', ');
-  pushInApp(
+  await pushInApp(
+    userId,
     'critical',
     `🔴 ${tasks.length} critical task${tasks.length > 1 ? 's' : ''}`,
     `Urgent: ${taskNames}${tasks.length > 3 ? ` and ${tasks.length - 3} more` : ''}`,
@@ -179,7 +182,7 @@ export async function notifyTaskEvent(
   const level = getEntropyLevel(task.entropyScore);
   const emoji = level === 'critical' ? '🔴' : level === 'hot' ? '🟠' : level === 'warm' ? '🟡' : '🟢';
 
-  pushInApp(type, `${emoji} ${task.title}`, message, task.id);
+  await pushInApp(task.userId, type, `${emoji} ${task.title}`, message, task.id);
   return { channel: 'in-app', sent: true };
 }
 
@@ -263,14 +266,17 @@ export async function dispatchDurableNotification(
 /**
  * Get notification system status.
  */
-export function getNotificationStatus(): {
+export async function getNotificationStatus(userId: string): Promise<{
   emailConfigured: boolean;
   inAppQueueSize: number;
   unreadCount: number;
-} {
+}> {
+  const inAppQueueSize = await prisma.inAppNotification.count({ where: { userId } });
+  const unreadCount = await prisma.inAppNotification.count({ where: { userId, read: false } });
+
   return {
     emailConfigured: isEmailConfigured(),
-    inAppQueueSize: inAppQueue.length,
-    unreadCount: inAppQueue.filter(n => !n.read).length,
+    inAppQueueSize,
+    unreadCount,
   };
 }

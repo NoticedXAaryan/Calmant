@@ -23,7 +23,6 @@ vi.mock('@/lib/alert-policy', () => ({
 describe('Notifications Dispatch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    markAllRead();
   });
 
   it('should push in-app notification and try telegram then email', async () => {
@@ -43,10 +42,20 @@ describe('Notifications Dispatch', () => {
     // @ts-expect-error mock
     prisma.notificationDelivery.create.mockResolvedValue({ id: 'del-1' });
 
+    // Mock InAppNotification creation
+    // @ts-expect-error mock
+    prisma.inAppNotification.create.mockResolvedValue({ id: 'inapp-1' });
+
+    // Mock findMany for unread
+    // @ts-expect-error mock
+    prisma.inAppNotification.findMany.mockResolvedValue([
+      { id: 'inapp-1', type: 'critical', userId: 'u1' }
+    ]);
+
     const results = await notifyCriticalTasks('u1', [task as any], 'test@example.com');
     
     // In-app should be sent
-    const unread = getUnreadNotifications();
+    const unread = await getUnreadNotifications('u1');
     expect(unread.length).toBe(1);
     expect(unread[0].type).toBe('critical');
     

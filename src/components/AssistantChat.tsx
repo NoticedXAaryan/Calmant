@@ -73,6 +73,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [attachedFile, setAttachedFile] = useState<{ name: string; content: string } | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -149,6 +150,8 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       const trimmed = text.trim();
       if (!trimmed && !attachedFile) return;
 
+      const recentHistory = messages.slice(-10);
+
       let finalMessage = trimmed;
       if (attachedFile) {
         finalMessage = `[Attached File: ${attachedFile.name}]\n\`\`\`\n${attachedFile.content}\n\`\`\`\n\n${trimmed}`;
@@ -169,14 +172,21 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       // Reset textarea height instantly
       if (inputRef.current) inputRef.current.style.height = "auto";
 
+      // Cancel any in-flight request
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         const res = await fetch("/api/agent/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             message: finalMessage,
+            history: recentHistory,
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
           }),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -189,30 +199,63 @@ export default function AssistantChat({ userName }: { userName?: string }) {
         let receivedFinalMessage = false;
 
         if (reader) {
-          let done = false;
-          while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            if (value) {
-              const chunk = decoder.decode(value);
-              const lines = chunk.split('\n');
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
+          let buffer = "";
+          const processedIds = new Set<string>();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            
+            const frames = buffer.split("\n\n");
+            buffer = frames.pop() || "";
+            
+            for (const frame of frames) {
+              for (const line of frame.split("\n")) {
+                if (!line.startsWith("data: ")) continue;
+                
+                try {
                   const dataStr = line.slice(6).trim();
-                  if (dataStr) {
-                    try {
-                      const data = JSON.parse(dataStr);
-                      if (data.error || data.content) {
-                        receivedFinalMessage = true;
-                        setMessages((prev) => [...prev, {
-                          id: generateId(),
-                          role: "assistant",
-                          content: data.content || data.error,
-                          timestamp: Date.now(),
-                        }]);
-                      }
-                    } catch (e) {}
+                  if (!dataStr) continue;
+                  
+                  const parsed = JSON.parse(dataStr);
+                  
+                  if (parsed.responseId && processedIds.has(parsed.responseId) && parsed.content) {
+                    continue;
                   }
+                  if (parsed.responseId && parsed.content) {
+                    processedIds.add(parsed.responseId);
+                  }
+                  
+                  if (parsed.thinking) {
+                    setLoading(true);
+                    continue;
+                  }
+                  
+                  if (parsed.content) {
+                    receivedFinalMessage = true;
+                    setLoading(false);
+                    setMessages((prev) => [...prev, {
+                      id: generateId(),
+                      role: "assistant",
+                      content: parsed.content,
+                      timestamp: Date.now(),
+                    }]);
+                  }
+                  
+                  if (parsed.error) {
+                    receivedFinalMessage = true;
+                    setLoading(false);
+                    setMessages((prev) => [...prev, {
+                      id: generateId(),
+                      role: "assistant",
+                      content: `Error: ${parsed.error}`,
+                      timestamp: Date.now(),
+                    }]);
+                  }
+                } catch (e) {
+                  // Skip malformed JSON
                 }
               }
             }
@@ -237,7 +280,7 @@ export default function AssistantChat({ userName }: { userName?: string }) {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 10);
     },
-    [attachedFile]
+    [attachedFile, messages]
   );
 
   const handleSubmit = (e: FormEvent) => {

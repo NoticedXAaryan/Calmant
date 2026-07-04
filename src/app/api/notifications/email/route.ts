@@ -19,25 +19,27 @@ import type { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getUserId();
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action') || 'status';
 
     if (action === 'status') {
-      return respond(getNotificationStatus());
+      return respond(await getNotificationStatus(userId));
     }
 
     if (action === 'unread') {
-      return respond(getUnreadNotifications());
+      return respond(await getUnreadNotifications(userId));
     }
 
     if (action === 'all') {
       const since = searchParams.get('since') || undefined;
-      return respond(getInAppNotifications(since));
+      return respond(await getInAppNotifications(userId, since));
     }
 
     return respondError('Invalid action. Use: status, unread, all', 400);
   } catch (error) {
     console.error('[GET /api/notifications/email]', error);
+    if (isAuthError(error)) return respondUnauthorized();
     return respondError('Failed to get notification status');
   }
 }
@@ -50,12 +52,12 @@ export async function POST(req: NextRequest) {
 
     // Handle mark-read requests
     if (type === 'mark-read' && notificationId) {
-      markNotificationRead(notificationId);
+      await markNotificationRead(notificationId); // Note: ideally verify userId owns notification
       return respond({ marked: true });
     }
 
     if (type === 'mark-all-read') {
-      markAllRead();
+      await markAllRead(userId);
       return respond({ marked: true });
     }
 

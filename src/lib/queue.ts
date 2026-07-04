@@ -33,6 +33,8 @@ export async function registerRepeatingJobs() {
     { name: 'provider-health-probe', intervalMinutes: 10 },
     { name: 'smart-start-reminders', intervalMinutes: 5 },
     { name: 'sandbox-health-probe', intervalMinutes: 5 },
+    { name: 'calendar-sync', intervalMinutes: 15 },
+    { name: 'overdue-escalation', intervalMinutes: 30 },
   ];
 
   for (const job of jobs) {

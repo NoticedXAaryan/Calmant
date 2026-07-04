@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Smartphone, Calendar, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Smartphone, Calendar, Loader2, CheckCircle2 } from "lucide-react";
 
 export function StepIntegrations({
   onNext,
@@ -30,13 +30,8 @@ export function StepIntegrations({
   }, []);
 
   useEffect(() => {
-    if (!telegramCode && !connected) {
-      generateTelegramCode();
-    }
-  }, [telegramCode, generateTelegramCode, connected]);
-
-  useEffect(() => {
     if (connected) return;
+    if (!telegramCode) return;
     const interval = setInterval(async () => {
       setCheckingStatus(true);
       try {
@@ -51,9 +46,9 @@ export function StepIntegrations({
       } finally {
         setCheckingStatus(false);
       }
-    }, 3000);
+    }, 5000);
     return () => clearInterval(interval);
-  }, [connected]);
+  }, [connected, telegramCode]);
 
   return (
     <div className="animate-in slide-in-from-right-4 fade-in duration-300">
@@ -92,37 +87,40 @@ export function StepIntegrations({
                 </div>
               ) : telegramCode ? (
                 <div>
-                  <p className="text-sm font-medium mb-2">Message this code to @CalmantBot</p>
-                  <code className="px-3 py-1.5 bg-background border border-border rounded-md text-lg font-mono font-bold tracking-widest select-all">
-                    {telegramCode}
+                  <p className="text-sm font-medium mb-2">1. Open Telegram and search for <strong className="text-foreground">@CalmantBot</strong></p>
+                  <p className="text-sm font-medium mb-2">2. Send the following code to the bot:</p>
+                  <code className="inline-block mt-2 px-4 py-2 bg-background border border-border rounded-md text-xl font-mono font-bold tracking-widest select-all">
+                    /connect {telegramCode}
                   </code>
-                  <p className="text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
+                  <p className="text-xs text-muted-foreground mt-4 flex items-center justify-center gap-1.5">
                     {checkingStatus && <Loader2 className="h-3 w-3 animate-spin" />}
                     Waiting for connection...
                   </p>
                 </div>
               ) : (
-                <Button variant="outline" size="sm" onClick={generateTelegramCode}>
-                  Retry Connection
+                <Button variant="default" size="sm" onClick={generateTelegramCode} className="w-full sm:w-auto">
+                  Connect Telegram
                 </Button>
               )}
             </div>
           )}
         </div>
 
-        {/* Google Calendar Mock */}
-        <div className="p-4 rounded-lg border border-border bg-card opacity-50 pointer-events-none">
+        {/* Google Calendar */}
+        <div className="p-4 rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-muted text-muted-foreground rounded-lg">
+              <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="font-medium text-sm">Google Calendar</h3>
-                <p className="text-xs text-muted-foreground">Coming soon</p>
+                <p className="text-xs text-muted-foreground">Sync your events</p>
               </div>
             </div>
-            <Button variant="secondary" size="sm" disabled>Connect</Button>
+            <Button variant="secondary" size="sm" onClick={() => window.location.href = '/api/auth/google'}>
+              Connect
+            </Button>
           </div>
         </div>
       </div>
@@ -132,7 +130,7 @@ export function StepIntegrations({
           <ArrowLeft className="h-4 w-4 mr-2" /> Back
         </Button>
         <Button onClick={onNext}>
-          {connected ? "Next" : "Skip"} <ArrowRight className="h-4 w-4 ml-2" />
+          {connected ? "Next" : "Skip for now"} <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
     </div>

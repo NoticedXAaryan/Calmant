@@ -1,23 +1,26 @@
 import { prisma } from './prisma';
+import { searchMemory } from './memory';
 
-export async function buildUserContext(userId: string) {
-  const [tasks, memories, habits] = await Promise.all([
+export async function buildUserContext(userId: string, currentMessage?: string) {
+  const [tasks, habits] = await Promise.all([
     prisma.task.findMany({
       where: { userId, status: { in: ['PENDING', 'IN_PROGRESS'] } },
       orderBy: { entropyScore: 'desc' },
-      take: 15,
+      take: 10,
       include: { subtasks: true },
-    }),
-    prisma.agentMemory.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-      take: 20,
     }),
     prisma.habit.findMany({
       where: { userId },
       include: { completions: { orderBy: { date: 'desc' }, take: 1 } },
+      take: 10,
     }),
   ]);
+
+  // Semantic memory search — retrieves facts RELEVANT to the current message
+  let memories: string[] = [];
+  if (currentMessage) {
+    memories = await searchMemory(currentMessage, userId, 15);
+  }
 
   return { tasks, memories, habits };
 }
@@ -41,9 +44,9 @@ export function formatContextForPrompt(ctx: Awaited<ReturnType<typeof buildUserC
     return `- "${t.title}" (entropy: ${t.entropyScore.toFixed(2)}, ${hoursLeft}h left, status: ${t.status})`;
   }).join('\n');
 
-  const memoryLines = ctx.memories.map(m =>
-    `- [${m.category}] ${m.fact}`
-  ).join('\n');
+  const memoryLines = ctx.memories.length > 0
+    ? ctx.memories.map((m: string) => `- ${m}`).join('\n')
+    : 'Nothing stored yet.';
 
   const habitLines = ctx.habits.map(h =>
     `- ${h.name} (streak: ${h.streak})`

@@ -3,6 +3,8 @@ import { googleWorkspaceSchema, executeGoogleWorkspaceCLI } from "./google-works
 import { browserNavigateSchema, executeBrowserNavigate, browserActionSchema, executeBrowserAction } from "./browser";
 import { readFileSchema, executeReadFile, writeFileSchema, executeWriteFile, listDirSchema, executeListDir, runCommandSchema, executeRunCommand } from "./filesystem";
 import { mcpToolSchema, executeMCPTool, mcpClient } from "./mcp";
+import { tavilySearchSchema, executeTavilySearch, firecrawlSchema, executeFirecrawl } from "./research";
+import { getCalendarEventsSchema, executeGetCalendarEvents } from "./google-calendar";
 
 export type ToolCategory = 'workspace' | 'browser' | 'filesystem' | 'comms' | 'system' | 'mcp';
 export type ToolCostTier = 'free' | 'cheap' | 'expensive';
@@ -31,6 +33,8 @@ class ToolRegistry {
     this.registerBrowser();
     this.registerFileSystem();
     this.registerMCP();
+    this.registerResearch();
+    this.registerGoogle();
   }
 
   private registerMCP() {
@@ -42,6 +46,40 @@ class ToolRegistry {
       requiresAuth: false,
       costTier: 'free',
       handler: executeMCPTool,
+    });
+  }
+
+  private registerResearch() {
+    this.register({
+      name: "tavily_search",
+      description: "Search the web using Tavily",
+      category: 'system',
+      inputSchema: tavilySearchSchema,
+      requiresAuth: true,
+      costTier: 'cheap',
+      handler: executeTavilySearch,
+    });
+    
+    this.register({
+      name: "firecrawl_scrape",
+      description: "Scrape a webpage and convert it to markdown using Firecrawl",
+      category: 'system',
+      inputSchema: firecrawlSchema,
+      requiresAuth: true,
+      costTier: 'cheap',
+      handler: executeFirecrawl,
+    });
+  }
+
+  private registerGoogle() {
+    this.register({
+      name: "google_calendar_events",
+      description: "Get upcoming events from the user's primary Google Calendar. Fails if the user has not connected their Google account.",
+      category: 'system',
+      inputSchema: getCalendarEventsSchema,
+      requiresAuth: true,
+      costTier: 'free',
+      handler: executeGetCalendarEvents as any,
     });
   }
 

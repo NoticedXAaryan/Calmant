@@ -19,6 +19,7 @@ import { SignalGrid } from "@/components/app/dashboard/SignalGrid";
 import { FocusSessionCard } from "@/components/app/dashboard/FocusSessionCard";
 import { RescuePlanTimeline } from "@/components/app/dashboard/RescuePlanTimeline";
 import { TaskQueueTable } from "@/components/app/dashboard/TaskQueueTable";
+import { PendingApprovals } from "@/components/app/dashboard/PendingApprovals";
 
 function LoadingSurface() {
   return (
@@ -259,8 +260,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 py-8 md:px-8">
+    <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-8 w-full">
         <header className="flex items-end justify-between border-b border-border/50 pb-6">
           <TodayHeader busy={busy} onRefresh={refresh} />
         </header>
@@ -278,6 +278,8 @@ export default function DashboardPage() {
 
         <section className="grid gap-8 lg:grid-cols-[1fr_320px]">
           <div className="flex flex-col gap-8">
+            <PendingApprovals />
+            
             <div className="border border-border/50 bg-surface/50 p-6 relative">
               {/* Decorative corner accent */}
               <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-primary/40 -translate-x-px -translate-y-px pointer-events-none" />
@@ -340,7 +342,6 @@ export default function DashboardPage() {
             </div>
           </aside>
         </section>
-      </div>
     </div>
   );
 }
