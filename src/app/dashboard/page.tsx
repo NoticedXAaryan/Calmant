@@ -260,66 +260,85 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 md:px-8 md:py-8">
-        <TodayHeader busy={busy} onRefresh={refresh} />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 py-8 md:px-8">
+        <header className="flex items-end justify-between border-b border-border/50 pb-6">
+          <TodayHeader busy={busy} onRefresh={refresh} />
+        </header>
 
         {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-none border-l-2 border-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         )}
         {notice && (
-          <div className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          <div className="rounded-none border-l-2 border-primary bg-primary/5 px-4 py-3 text-sm text-foreground">
             {notice}
           </div>
         )}
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-          <div className="rounded-lg border border-border bg-card p-4 md:p-5">
-            <NextActionCard
-              task={currentTask}
-              busy={busy}
-              onStart={startTask}
-              onDecompose={decomposeTask}
-              onSnooze={snoozeTask}
-              onComplete={completeTask}
-            />
+        <section className="grid gap-8 lg:grid-cols-[1fr_320px]">
+          <div className="flex flex-col gap-8">
+            <div className="border border-border/50 bg-surface/50 p-6 relative">
+              {/* Decorative corner accent */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-primary/40 -translate-x-px -translate-y-px pointer-events-none" />
+              <NextActionCard
+                task={currentTask}
+                busy={busy}
+                onStart={startTask}
+                onDecompose={decomposeTask}
+                onSnooze={snoozeTask}
+                onComplete={completeTask}
+              />
+            </div>
+            
+            <div className="border-t border-border/50 pt-8">
+              <TaskQueueTable 
+                plan={plan}
+                busy={busy}
+                onStart={startTask}
+                onDecompose={decomposeTask}
+                onSnooze={snoozeTask}
+                onComplete={completeTask}
+              />
+            </div>
           </div>
 
-          <aside className="flex flex-col gap-4">
-            <QuickCapture
-              capture={capture}
-              draft={draft}
-              analysis={analysis}
-              busy={busy}
-              onChangeCapture={setCapture}
-              onSetDraft={setDraft}
-              onSetAnalysis={setAnalysis}
-              onSubmitCapture={captureTask}
-              onConfirmDraft={confirmDraft}
-            />
+          <aside className="flex flex-col gap-8 lg:border-l lg:border-border/50 lg:pl-8">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Command</div>
+              <QuickCapture
+                capture={capture}
+                draft={draft}
+                analysis={analysis}
+                busy={busy}
+                onChangeCapture={setCapture}
+                onSetDraft={setDraft}
+                onSetAnalysis={setAnalysis}
+                onSubmitCapture={captureTask}
+                onConfirmDraft={confirmDraft}
+              />
+            </div>
 
-            <SignalGrid stats={stats} />
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Telemetry</div>
+              <SignalGrid stats={stats} />
+            </div>
 
-            <FocusSessionCard 
-              activeFocus={activeFocus} 
-              focusRemaining={focusRemaining} 
-              onStop={() => setActiveFocus(null)} 
-            />
+            {activeFocus && (
+              <div className="border border-accent/20 bg-accent/5 p-4">
+                <FocusSessionCard 
+                  activeFocus={activeFocus} 
+                  focusRemaining={focusRemaining} 
+                  onStop={() => setActiveFocus(null)} 
+                />
+              </div>
+            )}
+            
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Horizon</div>
+              <RescuePlanTimeline plan={plan} />
+            </div>
           </aside>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <RescuePlanTimeline plan={plan} />
-          
-          <TaskQueueTable 
-            plan={plan}
-            busy={busy}
-            onStart={startTask}
-            onDecompose={decomposeTask}
-            onSnooze={snoozeTask}
-            onComplete={completeTask}
-          />
         </section>
       </div>
     </div>
