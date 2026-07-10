@@ -59,7 +59,9 @@ COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
 COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
 
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
-
+USER root
+RUN apt-get update && apt-get install -y dos2unix && dos2unix ./start.sh && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN chown nextjs:nodejs ./start.sh && chmod +x ./start.sh
 USER nextjs
 
 EXPOSE 3000
