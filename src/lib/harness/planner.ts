@@ -13,9 +13,15 @@ export class TaskPlanner {
   async createPlan(userInput: string, classification: TaskClassification, context?: string, runId?: string): Promise<Plan> {
     const toolDescriptions = registry.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n');
     
+    // Inject active skills
+    const { prisma } = await import("../../prisma");
+    const skills = await prisma.skill.findMany({ where: { enabled: true } });
+    const skillList = skills.length > 0 ? skills.map(s => `- ${s.name}: ${s.description}`).join('\n') : "No active skills available.";
+
     let systemInstruction = PLAN_SYSTEM_PROMPT
       .replace("{{TOOL_REGISTRY}}", toolDescriptions)
-      .replace("{{CLASSIFICATION}}", JSON.stringify(classification, null, 2));
+      .replace("{{CLASSIFICATION}}", JSON.stringify(classification, null, 2))
+      .replace("{{SKILLS_LIST}}", skillList);
 
     const prompt = `
 Context:

@@ -27,6 +27,7 @@ export const PlanStepSchema = z.object({
   tool: z.string().describe("The name of the tool to execute"),
   argumentsTemplate: z.record(z.string(), z.any()).describe("The arguments to pass to the tool. Can use {{step-id.output_field}} to reference previous outputs."),
   fallbackStrategy: z.string().optional().describe("What to do if this step fails"),
+  assignedSkill: z.string().optional().describe("If there is a relevant enabled skill, assign its name here. If none fit, provide null."),
 });
 
 export const PlanSchema = z.object({

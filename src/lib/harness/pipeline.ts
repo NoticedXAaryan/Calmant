@@ -56,14 +56,57 @@ export class AgentPipeline {
       data: { classification: classification as any, plan: plan as any }
     });
 
+    if (toolContext.projectCellId) {
+      for (const step of plan.steps) {
+        await prisma.projectTask.create({
+          data: {
+            title: step.id,
+            description: step.description,
+            status: "pending",
+            projectCellId: toolContext.projectCellId,
+            assignedSkill: step.assignedSkill || null,
+          }
+        });
+      }
+    }
+
     // 3. Execution
     const results = await this.executor.executePlan(plan, toolContext);
+
+    // Run QA if we are part of a project task
+    let qaPassed = true;
+    let qaFeedback = "";
+    if (toolContext.projectTaskId) {
+      const { QAService } = await import("../services/qa-service");
+      const qaResult = await QAService.runQA(toolContext.projectTaskId, toolContext.runId, plan, results);
+      qaPassed = qaResult.passed;
+      qaFeedback = qaResult.feedback || "";
+    }
     
     // 4. Synthesis
     const synthesizeModel = this.router.route(classification, "synthesize", options.routerOptions).modelName;
     const synthesizer = new TaskSynthesizer(options.apiKey, synthesizeModel);
     
     const synthesis = await synthesizer.synthesize(userInput, plan, results);
+    if (!qaPassed) {
+      synthesis.response = `⚠️ QA Failed: ${qaFeedback}\n\n${synthesis.response}`;
+    }
+
+    if (synthesis.proposeSkill && toolContext.projectCellId) {
+      // Create a task for the Toolsmith to implement this new skill
+      const { prisma } = await import("../prisma");
+      await prisma.projectTask.create({
+        data: {
+          title: "Implement New Skill for: " + classification.type,
+          description: "The agent proposed creating a new skill for this workflow: " + userInput,
+          status: "pending",
+          projectCellId: toolContext.projectCellId,
+          assignedSkill: "Toolsmith Integrations Engineer Skill",
+        }
+      });
+      synthesis.response += "\n\n💡 I've proposed creating a new reusable Skill based on this workflow.";
+    }
+
     console.log("[Pipeline] Synthesis complete");
     
     return synthesis;
@@ -96,12 +139,40 @@ export class AgentPipeline {
     // 3. Resume Execution
     const results = await this.executor.executePlan(plan, toolContext, contextSnapshot);
     
+    // Run QA if we are part of a project task
+    let qaPassed = true;
+    let qaFeedback = "";
+    if (toolContext.projectTaskId) {
+      const { QAService } = await import("../services/qa-service");
+      const qaResult = await QAService.runQA(toolContext.projectTaskId, toolContext.runId, plan, results);
+      qaPassed = qaResult.passed;
+      qaFeedback = qaResult.feedback || "";
+    }
+    
     // 4. Synthesis
     const classification = run.classification || { type: "task", complexity: "medium" };
     const synthesizeModel = this.router.route(classification as any, "synthesize", options.routerOptions).modelName;
     const synthesizer = new TaskSynthesizer(options.apiKey, synthesizeModel);
     
-    const synthesis = await synthesizer.synthesize(run.prompt, plan, results);
+    const synthesis = await synthesizer.synthesize("Resumed execution", plan, results);
+    if (!qaPassed) {
+      synthesis.response = `⚠️ QA Failed: ${qaFeedback}\n\n${synthesis.response}`;
+    }
+
+    if (synthesis.proposeSkill && toolContext.projectCellId) {
+      const { prisma } = await import("../prisma");
+      await prisma.projectTask.create({
+        data: {
+          title: "Implement New Skill for: " + classification.type,
+          description: "The agent proposed creating a new skill for this resumed workflow",
+          status: "pending",
+          projectCellId: toolContext.projectCellId,
+          assignedSkill: "Toolsmith Integrations Engineer Skill",
+        }
+      });
+      synthesis.response += "\n\n💡 I've proposed creating a new reusable Skill based on this workflow.";
+    }
+
     console.log(`[Pipeline] Resumed synthesis complete for run ${runId}`);
     
     return synthesis;

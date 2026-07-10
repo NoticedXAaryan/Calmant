@@ -13,7 +13,7 @@ export class BrowserSessionService {
   /**
    * Starts a browser session, returning the DB ID.
    */
-  static async startSession(userId: string, runId?: string): Promise<string> {
+  static async startSession(userId: string, runId?: string, projectCellId?: string): Promise<string> {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -24,6 +24,7 @@ export class BrowserSessionService {
       data: {
         userId,
         runId,
+        projectCellId,
         externalId,
         status: "active",
       },
@@ -44,7 +45,7 @@ export class BrowserSessionService {
     });
   }
 
-  static async captureScreenshot(sessionId: string, userId: string, runId?: string, toolCallId?: string): Promise<string> {
+  static async captureScreenshot(sessionId: string, userId: string, runId?: string, toolCallId?: string, projectCellId?: string): Promise<string> {
     const session = this.getActiveSession(sessionId);
     if (!session) throw new Error("Session not found or inactive");
 
@@ -55,6 +56,7 @@ export class BrowserSessionService {
       data: {
         userId,
         agentRunId: runId,
+        projectCellId,
         toolCallId,
         type: "screenshot",
         title: `Screenshot: ${await session.page.title()}`,

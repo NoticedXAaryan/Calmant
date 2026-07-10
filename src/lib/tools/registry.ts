@@ -1,10 +1,11 @@
 import { z } from "zod";
 
+import { mcpToolSchema, executeMCPTool, mcpClient } from "./mcp";
 import { browserNavigateSchema, executeBrowserNavigate, browserActionSchema, executeBrowserAction } from "./browser";
 import { readFileSchema, executeReadFile, writeFileSchema, executeWriteFile, listDirSchema, executeListDir, runCommandSchema, executeRunCommand } from "./filesystem";
-import { mcpToolSchema, executeMCPTool, mcpClient } from "./mcp";
 import { tavilySearchSchema, executeTavilySearch, firecrawlSchema, executeFirecrawl } from "./research";
 import { getCalendarEventsSchema, executeGetCalendarEvents, createCalendarEventSchema, executeCreateCalendarEvent, getFreeBusySchema, executeGetFreeBusy } from "./google-calendar";
+import { portalEscalationSchema, executePortalEscalation } from "./portal-escalation";
 import { gmailSearchSchema, executeGmailSearch, gmailCreateDraftSchema, executeGmailCreateDraft, gmailSendDraftSchema, executeGmailSendDraft } from "./gmail";
 import { ToolManifest, ToolExecutionContext } from "./tool-manifest";
 import { ToolRunner } from "./tool-runner";
@@ -21,6 +22,22 @@ class ToolRegistry {
     this.registerMCP();
     this.registerResearch();
     this.registerGoogle();
+    this.registerPortal();
+  }
+
+  private registerPortal() {
+    this.register({
+      name: "portal_escalation",
+      version: "1.0.0",
+      description: "Escalate a complex task to an external AI portal (like Claude, ChatGPT, etc.)",
+      category: "browser",
+      inputSchema: portalEscalationSchema,
+      riskLevel: "external_message",
+      sideEffect: "none",
+      requiresApproval: "always",
+      timeoutMs: 30000,
+      handler: executePortalEscalation as any,
+    });
   }
 
   private registerMCP() {
@@ -148,10 +165,19 @@ class ToolRegistry {
       description: "Perform an action (click, type, extract, screenshot) in the browser sandbox",
       category: "browser",
       inputSchema: browserActionSchema,
-      riskLevel: "write_internal",
-      sideEffect: "internal_write",
+      riskLevel: "external_submission",
+      sideEffect: "external_write",
       requiresApproval: "policy",
-      checkApproval: (args: any) => ["submit", "upload", "payment"].includes(args.action),
+      checkApproval: (args: any) => {
+        if (args.action === "submit") return true;
+        if (args.action === "click" && args.selector) {
+          const s = args.selector.toLowerCase();
+          if (s.includes("submit") || s.includes("publish") || s.includes("pay") || s.includes("delete") || s.includes("checkout")) {
+            return true;
+          }
+        }
+        return false;
+      },
       timeoutMs: 30000,
       handler: executeBrowserAction as any,
     });

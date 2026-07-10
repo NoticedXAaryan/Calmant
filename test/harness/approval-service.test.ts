@@ -125,10 +125,11 @@ describe('Approval Pausing and Resuming', () => {
       id: 'app-1',
       userId: 'user-1',
       status: 'pending',
-      agentRunId: 'run-1'
+      agentRunId: 'run-1',
+      payload: { _toolCallId: 'tc-123' }
     });
     
-    (prisma.toolCall.findFirst as any).mockResolvedValue({
+    (prisma.toolCall.findUnique as any).mockResolvedValue({
       id: 'tc-123'
     });
 

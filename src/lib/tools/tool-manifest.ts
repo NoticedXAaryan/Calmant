@@ -18,6 +18,10 @@ export interface ToolExecutionContext {
   timeZone?: string;
   traceId?: string;
   dryRun?: boolean;
+  goalId?: string;
+  projectCellId?: string;
+  projectTaskId?: string;
+  availableSkills?: string[];
 }
 
 export interface ToolManifest<TInput = any, TOutput = any> {

@@ -32,13 +32,15 @@ model User {
   delegatedTasks         DelegatedTask[]
   auditEvents            AuditEvent[]
   artifacts              Artifact[]
-  departmentRuns         DepartmentRun[]
   watchers               Watcher[]
   approvalRequests       ApprovalRequest[]
   inAppNotifications     InAppNotification[]
   events                 AgentEvent[]
   goals                  Goal[]
   opportunities          Opportunity[]
+  projectCells           ProjectCell[]
+  reports                Report[]
+  memoryRecords          MemoryRecord[]
 }
 
 model Task {
@@ -224,11 +226,11 @@ model BackgroundJob {
 }
 
 model AgentRun {
-  id               String        @id @default(cuid())
+  id               String         @id @default(cuid())
   userId           String
   prompt           String
   response         String?
-  status           String        @default("running") // running | completed | failed
+  status           String         @default("running") // running | completed | failed
   modelId          String?
   promptTokens     Int?
   completionTokens Int?
@@ -238,12 +240,19 @@ model AgentRun {
   currentPhase     String?
   channel          String?
   lastError        String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCellId    String?
+  projectTaskId    String?
+  projectCell      ProjectCell?   @relation(fields: [projectCellId], references: [id], onDelete: SetNull)
+  projectTask      ProjectTask?   @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
   toolCalls        ToolCall[]
   memories         AgentMemory[]
   events           AgentEvent[]
+  skillRuns        SkillRun[]
+  qaResults        QaResult[]
+  memoryRecords    MemoryRecord[]
 }
 
 model ToolCall {
@@ -275,19 +284,21 @@ model DelegatedTask {
 }
 
 model ApprovalRequest {
-  id          String    @id @default(cuid())
-  userId      String
-  type        String // "email", "post", "form_submission", "calendar_event"
-  title       String
-  description String
-  payload     Json // The full action payload to execute on approval
-  status      String    @default("pending") // pending, approved, rejected, executed
-  agentRunId  String? // Link to the agent run that created this
-  createdAt   DateTime  @default(now())
-  reviewedAt  DateTime?
-  executedAt  DateTime?
+  id            String    @id @default(cuid())
+  userId        String
+  type          String // "email", "post", "form_submission", "calendar_event"
+  title         String
+  description   String
+  payload       Json // The full action payload to execute on approval
+  status        String    @default("pending") // pending, approved, rejected, executed
+  agentRunId    String? // Link to the agent run that created this
+  createdAt     DateTime  @default(now())
+  reviewedAt    DateTime?
+  executedAt    DateTime?
+  projectCellId String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCell ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: Cascade)
 }
 
 model InAppNotification {
@@ -314,7 +325,7 @@ model AuditEvent {
 }
 
 model Artifact {
-  id              String   @id @default(cuid())
+  id              String       @id @default(cuid())
   userId          String
   delegatedTaskId String?
   agentRunId      String?
@@ -325,32 +336,16 @@ model Artifact {
   filePath        String? // path in artifact volume (for binary files)
   content         String? // for text-based artifacts (notes, documents)
   metadata        Json?
-  createdAt       DateTime @default(now())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  projectCellId   String?
+  projectTaskId   String?
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCell     ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: Cascade)
+  projectTask     ProjectTask? @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
 
   @@index([userId, delegatedTaskId])
   @@index([userId, createdAt])
   @@index([toolCallId])
-}
-
-model DepartmentRun {
-  id          String    @id @default(cuid())
-  userId      String
-  parentRunId String? // AgentRun id of the CEO run that spawned this
-  department  String // capture | deadline | browser | comms | recovery | intel | creator
-  objective   String
-  status      String    @default("pending") // pending | running | waiting_approval | completed | failed
-  input       Json?
-  output      Json?
-  artifacts   Json? // array of Artifact IDs produced by this run
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, status])
-  @@index([parentRunId])
 }
 
 model Watcher {
@@ -391,17 +386,20 @@ model WatcherEvent {
 }
 
 model BrowserSession {
-  id         String    @id @default(cuid())
-  userId     String
-  runId      String?
-  externalId String
+  id            String       @id @default(cuid())
+  userId        String
+  runId         String?
+  projectCellId String?
+  externalId    String
   status     String    @default("active") // active | closed | crashed | expired
   currentUrl String?
   title      String?
   metadata   Json?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  expiresAt  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  expiresAt     DateTime?
+
+  projectCell   ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
   @@index([runId])
@@ -421,6 +419,7 @@ model Goal {
   updatedAt       DateTime      @updatedAt
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   opportunities   Opportunity[]
+  projectCells    ProjectCell[]
 
   @@index([userId, status])
   @@index([nextReviewAt])
@@ -476,18 +475,20 @@ model CalendarSyncState {
 }
 
 model AgentEvent {
-  id        String   @id @default(cuid())
-  runId     String
-  userId    String
-  seq       Int
-  type      String // run.created | context.loaded | classified | planned | tool.started | tool.completed | approval.required | approval.resolved | artifact.created | run.completed | run.failed
-  level     String   @default("info") // debug | info | warn | error
-  message   String
-  metadata  Json?
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  runId         String?
+  userId        String
+  seq           Int
+  type          String // run.created | context.loaded | classified | planned | tool.started | tool.completed | approval.required | approval.resolved | artifact.created | run.completed | run.failed
+  level         String   @default("info") // debug | info | warn | error
+  message       String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  projectCellId String?
 
-  run  AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run         AgentRun?    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCell ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: Cascade)
 
   @@unique([runId, seq])
   @@index([userId, createdAt])
@@ -510,4 +511,140 @@ model InboundMessage {
 
   @@unique([channel, externalId])
   @@index([userId, receivedAt])
+}
+
+model ProjectCell {
+  id              String   @id @default(cuid())
+  userId          String
+  goalId          String?
+  title           String
+  objective       String
+  successCriteria Json?
+  status          String   @default("active") // active | paused | completed | abandoned
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      Goal?             @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  tasks     ProjectTask[]
+  agentRuns AgentRun[]
+  artifacts Artifact[]
+  approvals       ApprovalRequest[]
+  events          AgentEvent[]
+  memories        MemoryRecord[]
+  reports         Report[]
+  browserSessions BrowserSession[]
+
+  @@index([userId, status])
+  @@index([goalId])
+}
+
+model ProjectTask {
+  id            String    @id @default(cuid())
+  projectCellId String
+  title         String
+  description   String?
+  status        String    @default("pending") // pending | running | blocked | completed | failed
+  assignedSkill String?
+  dependsOn     String[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+
+  projectCell ProjectCell @relation(fields: [projectCellId], references: [id], onDelete: Cascade)
+  skillRuns   SkillRun[]
+  qaResults   QaResult[]
+  agentRuns   AgentRun[]
+  artifacts   Artifact[]
+
+  @@index([projectCellId, status])
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  userId        String
+  projectCellId String?
+  type          String // morning | evening | urgent | ad_hoc
+  title         String
+  content       String?
+  payload       Json?
+  status        String   @default("generated") // generated | sent | read
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCell ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: SetNull)
+
+  @@index([userId, type])
+  @@index([createdAt])
+}
+
+model Skill {
+  id           String   @id @default(cuid())
+  name         String
+  description  String
+  versionHash  String
+  instructions String
+  schema       Json?
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  skillRuns SkillRun[]
+
+  @@unique([name])
+}
+
+model SkillRun {
+  id            String    @id @default(cuid())
+  skillId       String
+  projectTaskId String?
+  agentRunId    String?
+  status        String    @default("running") // running | completed | failed
+  input         Json?
+  output        Json?
+  error         String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  skill       Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  projectTask ProjectTask? @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
+  agentRun    AgentRun?    @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@index([skillId, status])
+}
+
+model QaResult {
+  id            String   @id @default(cuid())
+  projectTaskId String
+  agentRunId    String?
+  passed        Boolean
+  feedback      String?
+  issues        Json?
+  createdAt     DateTime @default(now())
+
+  projectTask ProjectTask @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
+  agentRun    AgentRun?   @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+}
+
+model MemoryRecord {
+  id             String   @id @default(cuid())
+  userId         String
+  projectCellId  String?
+  type           String // fact | preference | instruction | summary
+  content        String
+  confidence     Float    @default(1.0)
+  status         String   @default("proposed") // proposed | trusted | rejected | superseded
+  supersededById String?
+  sourceRunId    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectCell ProjectCell? @relation(fields: [projectCellId], references: [id], onDelete: SetNull)
+  sourceRun   AgentRun?    @relation(fields: [sourceRunId], references: [id], onDelete: SetNull)
+
+  supersededBy MemoryRecord?  @relation("Supersession", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes   MemoryRecord[] @relation("Supersession")
+
+  @@index([userId, status, type])
 }

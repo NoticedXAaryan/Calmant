@@ -7,6 +7,9 @@ You have access to the following tools in your registry:
 The task has been classified as follows:
 {{CLASSIFICATION}}
 
+Available Skills (Specialized worker sub-agents you can assign to steps if highly relevant):
+{{SKILLS_LIST}}
+
 INSTRUCTIONS:
 1. Break down the user's request into logical, sequential steps.
 2. For each step, identify EXACTLY ONE tool from the registry to use.

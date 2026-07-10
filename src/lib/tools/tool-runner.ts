@@ -17,7 +17,26 @@ export class ToolRunner {
       throw new Error(`Invalid arguments for tool ${manifest.name}: ${err.message}`);
     }
 
-    // 2. Check for an already approved ToolCall for this run and tool (to support resuming)
+    // 2. Check risk policy
+    const RiskScores = {
+      read: 0,
+      write_internal: 1,
+      external_message: 2,
+      external_submission: 3,
+      credential: 4,
+      destructive: 5,
+      financial: 5
+    };
+    
+    const maxRisk = process.env.AGENT_MAX_RISK || "financial";
+    const currentScore = RiskScores[manifest.riskLevel] ?? 0;
+    const maxScore = RiskScores[maxRisk as keyof typeof RiskScores] ?? 5;
+    
+    if (currentScore > maxScore) {
+      throw new Error(`Tool execution blocked: Risk level '${manifest.riskLevel}' exceeds configured policy maximum of '${maxRisk}'.`);
+    }
+
+    // 3. Check for an already approved ToolCall for this run and tool (to support resuming)
     const approvedCall = await prisma.toolCall.findFirst({
       where: {
         runId: context.runId,

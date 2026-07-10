@@ -29,7 +29,7 @@ async function ensureSession(context: ToolExecutionContext): Promise<string> {
   }
 
   // Create a new session
-  sessionId = await BrowserSessionService.startSession(context.userId, context.runId);
+  sessionId = await BrowserSessionService.startSession(context.userId, context.runId, context.projectCellId);
   runSessions.set(context.runId, sessionId);
   return sessionId;
 }
@@ -72,7 +72,8 @@ export async function executeBrowserAction(
       sessionId,
       context.userId,
       context.runId,
-      context.toolCallId
+      context.toolCallId,
+      context.projectCellId
     );
     return `Screenshot saved as Artifact ID: ${artifactId}`;
   }

@@ -5,6 +5,7 @@ import { transcribeAudio } from "../audio";
 import { ApprovalService } from "../agent-runtime/approval-service";
 import { TelegramService } from "../services/telegram-service";
 import { MemoryService } from "../services/memory-service";
+import { CommandHandler } from "./command-handler";
 
 export class TelegramUpdateRouter {
   static async routeUpdate(update: import("node-telegram-bot-api").Update): Promise<void> {
@@ -23,87 +24,8 @@ export class TelegramUpdateRouter {
   }
 
   private static async handleCallbackQuery(bot: TelegramBot, query: import("node-telegram-bot-api").CallbackQuery) {
-    const data = query.data;
-    if (!data) return;
-
-    if (data.startsWith("mem_approve_") || data.startsWith("mem_reject_")) {
-      const parts = data.split("_");
-      const action = parts[1] as "approve" | "reject";
-      const memoryId = parts.slice(2).join("_");
-
-      try {
-        await MemoryService.resolveMemory(memoryId, action === "approve" ? "active" : "rejected");
-        await bot.answerCallbackQuery(query.id, { text: `Memory ${action}d!` });
-        
-        await bot.editMessageText(`Memory was **${action}d**.`, {
-          chat_id: query.message!.chat.id,
-          message_id: query.message!.message_id,
-          parse_mode: "Markdown"
-        });
-      } catch (err: any) {
-        await bot.answerCallbackQuery(query.id, { text: `Error: ${err.message}`, show_alert: true });
-      }
-      return;
-    }
-
-    if (data.startsWith("approve_") || data.startsWith("reject_")) {
-      const parts = data.split("_");
-      const action = parts[0] as "approve" | "reject";
-      const approvalId = parts.slice(1).join("_");
-
-      // We need to resolve the user ID associated with this telegram chat
-      if (!query.message || !query.message.chat) return;
-
-      const connection = await prisma.integrationConnection.findFirst({
-        where: { provider: "telegram", externalId: query.message.chat.id.toString() }
-      });
-
-      if (!connection) {
-        await bot.answerCallbackQuery(query.id, { text: "Account not linked." });
-        return;
-      }
-
-      try {
-        await ApprovalService.resolveApproval(approvalId, action, connection.userId);
-        await bot.answerCallbackQuery(query.id, { text: `Successfully ${action}d!` });
-        
-        // Update the original message to remove the inline keyboard
-        await bot.editMessageText(`Approval request was **${action}d**.`, {
-          chat_id: query.message.chat.id,
-          message_id: query.message.message_id,
-          parse_mode: "Markdown"
-        });
-
-        // Resume pipeline if approved
-        if (action === "approve") {
-          const approval = await prisma.approvalRequest.findUnique({ where: { id: approvalId } });
-          if (approval && approval.agentRunId) {
-            const { AgentPipeline } = await import("../harness/pipeline");
-            const pipeline = new AgentPipeline();
-            
-            // Background resume
-            pipeline.resume(approval.agentRunId, {
-              apiKey: process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || ""
-            }).then(async (synthesis) => {
-              await prisma.agentRun.update({
-                where: { id: approval.agentRunId! },
-                data: { status: "completed", response: synthesis.response }
-              });
-              await bot.sendMessage(query.message!.chat.id, synthesis.response);
-            }).catch(async (err) => {
-              console.error("[Telegram Router] Resume Error:", err);
-              await prisma.agentRun.update({
-                where: { id: approval.agentRunId! },
-                data: { status: "failed", lastError: err.message }
-              });
-              await bot.sendMessage(query.message!.chat.id, `Resume failed: ${err.message}`);
-            });
-          }
-        }
-      } catch (err: any) {
-        await bot.answerCallbackQuery(query.id, { text: `Error: ${err.message}`, show_alert: true });
-      }
-    }
+    const { CallbackHandler } = await import("./callback-handler");
+    await CallbackHandler.handle(bot, query);
   }
 
   private static async handleMessage(bot: TelegramBot, msg: import("node-telegram-bot-api").Message) {
@@ -144,6 +66,9 @@ export class TelegramUpdateRouter {
       }
 
       const userId = connection.userId;
+
+      const handled = await CommandHandler.handle(bot, msg, userId, text);
+      if (handled) return;
 
       if (text === "/runs") {
         const runs = await prisma.agentRun.findMany({
@@ -338,9 +263,11 @@ export class TelegramUpdateRouter {
         await bot.editMessageText(`❌ Error: ${error.message}`, { chat_id: chatId, message_id: placeholderMsg.message_id });
       }
 
-    } catch (error) {
-      console.error("[Telegram Router] Error processing message:", error);
-      await bot.sendMessage(chatId, "Sorry, I encountered an error processing your request.");
+      // If not handled by explicit command, route via natural language intent
+      const { TelegramIntentRouter } = await import("./telegram-intent-router");
+      await TelegramIntentRouter.route(bot, msg, userId, text);
+    } catch (err) {
+      console.error("[Telegram Router] Message Error:", err);
     }
   }
 

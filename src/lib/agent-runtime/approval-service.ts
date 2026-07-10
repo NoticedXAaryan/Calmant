@@ -132,8 +132,16 @@ export class ApprovalService {
           { approvalId: approval.id, toolCallId: toolCall.id, action: "approve" }
         );
 
-        // Ideally, we would trigger resuming the plan here.
-        // For Phase 3, we will expose an endpoint to trigger resuming, or do it immediately here.
+        // Trigger resuming the plan here
+        const { AgentPipeline } = await import("../harness/pipeline");
+        const pipeline = new AgentPipeline();
+        
+        // Run in background so we don't block the API response
+        pipeline.resume(approval.agentRunId!, {
+          apiKey: process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || ""
+        }).catch(err => {
+          console.error(`[ApprovalService] Error resuming pipeline for run ${approval.agentRunId}:`, err);
+        });
       }
     }
   }
