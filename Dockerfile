@@ -52,10 +52,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 # We also need playwright installed locally to run chromium.launch
 COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
 COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
+
+COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
 USER nextjs
 
@@ -64,4 +67,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://127.0.0.1:3000/ || exit 1
 
-CMD ["node", "server.js"]
+CMD ["./start.sh"]
