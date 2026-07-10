@@ -198,8 +198,8 @@ async function processMorningBriefing() {
       lines.push(`\nTotal: ${tasks.length} tasks. Open your dashboard for the full plan.`);
       const briefing = lines.join('\n');
 
-      const { sendTelegramMessage } = await import('./telegram');
-      const sent = await sendTelegramMessage(user.id, briefing);
+      const { TelegramService } = await import('./services/telegram-service');
+      const sent = await TelegramService.sendMessage(user.id, briefing);
       
       if (!sent && user.email) {
         const { sendEmail, morningBriefingEmail } = await import('./email');
@@ -277,8 +277,8 @@ async function processEveningReview() {
       lines.push(`\nRest well. I'll handle the morning briefing. 🌟`);
       const review = lines.join('\n');
 
-      const { sendTelegramMessage } = await import('./telegram');
-      const sent = await sendTelegramMessage(user.id, review);
+      const { TelegramService } = await import('./services/telegram-service');
+      const sent = await TelegramService.sendMessage(user.id, review);
       
       if (!sent && user.email) {
         const { sendEmail, eveningReviewEmail } = await import('./email');
@@ -332,8 +332,8 @@ async function processSmartStartReminders() {
       const minsUntilStart = Math.round((startByTime - now) / 60000);
       const message = `⏱️ Heads up — you should start "${task.title}" in about ${minsUntilStart} minutes to finish by your deadline. It'll take ~${task.estimatedMins} min.`;
 
-      const { sendTelegramMessage } = await import('./telegram');
-      await sendTelegramMessage(task.userId, message);
+      const { TelegramService } = await import('./services/telegram-service');
+      await TelegramService.sendMessage(task.userId, message);
 
       await prisma.auditEvent.create({
         data: {
@@ -414,8 +414,8 @@ async function processScheduledReminder(job: any) {
       await sendEmail('Reminder from Calmant', `<p>${message}</p>`, user.email);
     }
   } else {
-    const { sendTelegramMessage } = await import('./telegram');
-    const sent = await sendTelegramMessage(userId, `⏰ ${message}`);
+    const { TelegramService } = await import('./services/telegram-service');
+    const sent = await TelegramService.sendMessage(userId, `⏰ ${message}`);
     if (!sent) {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (user?.email) {

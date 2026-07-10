@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { ToolContext } from "./registry";
-
-const SANDBOX_URL = process.env.SANDBOX_URL || "http://localhost:4000";
+import { ToolExecutionContext } from "./tool-manifest";
+import { BrowserSessionService } from "../services/browser-session-service";
 
 export const browserNavigateSchema = z.object({
   url: z.string().url().describe("The URL to navigate to"),
@@ -9,7 +8,7 @@ export const browserNavigateSchema = z.object({
 });
 
 export const browserActionSchema = z.object({
-  action: z.enum(["click", "type", "scroll", "extract", "screenshot"]),
+  action: z.enum(["click", "type", "scroll", "extract", "screenshot", "submit"]),
   selector: z.string().optional().describe("CSS selector for the element"),
   text: z.string().optional().describe("Text to type"),
   direction: z.enum(["up", "down", "left", "right"]).optional(),
@@ -18,91 +17,82 @@ export const browserActionSchema = z.object({
 export type BrowserNavigateArgs = z.infer<typeof browserNavigateSchema>;
 export type BrowserActionArgs = z.infer<typeof browserActionSchema>;
 
-// Session management — one active session at a time
-let activeSessionId: string | null = null;
+// Track run IDs to session IDs so we can reuse the session within a run
+const runSessions = new Map<string, string>();
 
-async function ensureSession(): Promise<string> {
-  if (activeSessionId) {
-    // Verify session is still alive
-    try {
-      const res = await fetch(`${SANDBOX_URL}/sessions/active`);
-      const data = await res.json();
-      if (data.active && data.sessionId === activeSessionId) {
-        return activeSessionId;
-      }
-    } catch { /* session died, create new one */ }
+async function ensureSession(context: ToolExecutionContext): Promise<string> {
+  let sessionId = runSessions.get(context.runId);
+
+  if (sessionId) {
+    const session = BrowserSessionService.getActiveSession(sessionId);
+    if (session) return sessionId;
   }
 
-  // Create new session
-  const res = await fetch(`${SANDBOX_URL}/session`, { method: "POST" });
-  if (!res.ok) throw new Error(`Failed to create browser session: ${res.status}`);
-  const data = await res.json();
-  activeSessionId = data.sessionId;
-  return activeSessionId!;
+  // Create a new session
+  sessionId = await BrowserSessionService.startSession(context.userId, context.runId);
+  runSessions.set(context.runId, sessionId);
+  return sessionId;
 }
 
 export async function executeBrowserNavigate(
-  args: BrowserNavigateArgs, context: ToolContext
+  args: BrowserNavigateArgs, context: ToolExecutionContext
 ): Promise<string> {
-  const sessionId = await ensureSession();
+  const sessionId = await ensureSession(context);
+  const session = BrowserSessionService.getActiveSession(sessionId);
+  if (!session) throw new Error("Session vanished");
 
-  const res = await fetch(`${SANDBOX_URL}/session/${sessionId}/navigate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: args.url }),
-  });
+  await session.page.goto(args.url, { waitUntil: args.waitFor });
+  const title = await session.page.title();
+  const url = session.page.url();
+  
+  await BrowserSessionService.updateSessionUrl(sessionId, url, title);
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(`Navigation failed: ${err.error}`);
-  }
-
-  const data = await res.json();
-  // Return structured info for the LLM
-  return `Navigated to: ${data.url}\nTitle: ${data.title}\nExtracted text (${data.textLength} chars):\n${data.text?.slice(0, 3000) || "No text extracted"}`;
+  return `Navigated to: ${url}\nTitle: ${title}`;
 }
 
 export async function executeBrowserAction(
-  args: BrowserActionArgs, context: ToolContext
+  args: BrowserActionArgs, context: ToolExecutionContext
 ): Promise<string> {
-  const sessionId = await ensureSession();
+  const sessionId = await ensureSession(context);
+  const session = BrowserSessionService.getActiveSession(sessionId);
+  if (!session) throw new Error("Session vanished");
+
+  const { page } = session;
 
   if (args.action === "extract") {
-    const res = await fetch(`${SANDBOX_URL}/session/${sessionId}/extract`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (!res.ok) throw new Error(`Extraction failed: ${res.status}`);
-    const data = await res.json();
-    return `Extracted from ${data.url}:\n- Title: ${data.title}\n- Forms: ${data.forms?.length || 0}\n- Links: ${data.links?.length || 0}\n- Text: ${data.text?.slice(0, 3000) || "none"}`;
+    const title = await page.title();
+    const url = page.url();
+    // Simplified extraction
+    const text = await page.evaluate(() => document.body.innerText);
+    return `Extracted from ${url}:\n- Title: ${title}\n- Text: ${text.slice(0, 3000)}`;
   }
 
   if (args.action === "screenshot") {
-    const res = await fetch(`${SANDBOX_URL}/session/${sessionId}/screenshot`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (!res.ok) throw new Error(`Screenshot failed: ${res.status}`);
-    const data = await res.json();
-    return `Screenshot saved: ${data.filename}`;
+    const artifactId = await BrowserSessionService.captureScreenshot(
+      sessionId,
+      context.userId,
+      context.runId,
+      context.toolCallId
+    );
+    return `Screenshot saved as Artifact ID: ${artifactId}`;
   }
 
-  // click, type, scroll
-  const res = await fetch(`${SANDBOX_URL}/session/${sessionId}/act`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: args.action,
-      selector: args.selector,
-      value: args.text || args.direction,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(`Action failed: ${err.error}`);
+  if (args.action === "click" || args.action === "submit") {
+    if (!args.selector) throw new Error("Selector is required for click/submit");
+    await page.click(args.selector);
+  } else if (args.action === "type") {
+    if (!args.selector || !args.text) throw new Error("Selector and text are required for type");
+    await page.fill(args.selector, args.text);
+  } else if (args.action === "scroll") {
+    await page.evaluate((direction) => {
+      if (direction === "down") window.scrollBy(0, window.innerHeight);
+      if (direction === "up") window.scrollBy(0, -window.innerHeight);
+    }, args.direction);
   }
 
-  const data = await res.json();
-  return `Action "${args.action}" completed. Current URL: ${data.url}, Title: ${data.title}`;
+  const newUrl = page.url();
+  const newTitle = await page.title();
+  await BrowserSessionService.updateSessionUrl(sessionId, newUrl, newTitle);
+
+  return `Action "${args.action}" completed. Current URL: ${newUrl}, Title: ${newTitle}`;
 }

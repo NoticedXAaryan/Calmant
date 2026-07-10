@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ToolContext } from "./registry";
+import { ToolExecutionContext } from "./tool-manifest";
 
 export const tavilySearchSchema = z.object({
   query: z.string().describe("The search query to execute"),
@@ -10,7 +10,7 @@ export const firecrawlSchema = z.object({
   url: z.string().url().describe("The URL to crawl and scrape"),
 });
 
-export async function executeTavilySearch(args: z.infer<typeof tavilySearchSchema>, context: ToolContext) {
+export async function executeTavilySearch(args: z.infer<typeof tavilySearchSchema>, context: ToolExecutionContext) {
   const apiKey = context.env.TAVILY_API_KEY || process.env.TAVILY_API_KEY;
   if (!apiKey) {
     throw new Error("TAVILY_API_KEY is not set in environment");
@@ -34,7 +34,7 @@ export async function executeTavilySearch(args: z.infer<typeof tavilySearchSchem
   return await res.json();
 }
 
-export async function executeFirecrawl(args: z.infer<typeof firecrawlSchema>, context: ToolContext) {
+export async function executeFirecrawl(args: z.infer<typeof firecrawlSchema>, context: ToolExecutionContext) {
   const apiKey = context.env.FIRECRAWL_API_KEY || process.env.FIRECRAWL_API_KEY;
   if (!apiKey) {
     throw new Error("FIRECRAWL_API_KEY is not set in environment");

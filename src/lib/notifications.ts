@@ -104,9 +104,9 @@ export async function notifyCriticalTasks(userId: string, tasks: Task[], userEma
   // Level 1: Telegram (if configured and linked)
   let telegramSent = false;
   try {
-    const { sendTelegramMessage } = await import('./telegram');
+    const { TelegramService } = await import('./services/telegram-service');
     const message = `🔴 Urgent: ${tasks.length} critical task(s)\n${taskNames}`;
-    telegramSent = await sendTelegramMessage(userId, message);
+    telegramSent = Boolean(await TelegramService.sendMessage(userId, message));
     if (telegramSent) {
       await prisma.notificationDelivery.create({
         data: {
@@ -209,11 +209,11 @@ export async function dispatchDurableNotification(
   // Level 1: Telegram
   let telegramSent = false;
   try {
-    const { sendTelegramMessage } = await import('./telegram');
+    const { TelegramService } = await import('./services/telegram-service');
     // Extract plain text from HTML (very basic)
     const plainText = html.replace(/<[^>]+>/g, '\n').replace(/\n\s*\n/g, '\n').trim();
     const message = `*${subject}*\n${plainText}`;
-    telegramSent = await sendTelegramMessage(userId, message);
+    telegramSent = Boolean(await TelegramService.sendMessage(userId, message, { parse_mode: "Markdown" }));
     
     if (telegramSent) {
       await prisma.notificationDelivery.create({

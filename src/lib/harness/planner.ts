@@ -1,46 +1,16 @@
-import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import { PLAN_SYSTEM_PROMPT } from "./prompts/plan";
 import { Plan, PlanSchema, TaskClassification } from "./types";
 import { registry } from "../tools/registry";
+import { ModelRouter } from "../agent-runtime/model-router";
 
 export class TaskPlanner {
-  private genAI: GoogleGenerativeAI;
   private modelName: string;
 
-  constructor(apiKey: string, modelName: string = "gemini-2.5-pro") {
-    this.genAI = new GoogleGenerativeAI(apiKey);
+  constructor(apiKey: string, modelName: string = "gpt-4o") {
     this.modelName = modelName;
   }
 
-  async createPlan(userInput: string, classification: TaskClassification, context?: string): Promise<Plan> {
-    const model = this.genAI.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            goal: { type: SchemaType.STRING },
-            steps: {
-              type: SchemaType.ARRAY,
-              items: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  id: { type: SchemaType.STRING, description: "Unique identifier for the step (e.g., 'step-1')" },
-                  description: { type: SchemaType.STRING, description: "What this step accomplishes" },
-                  tool: { type: SchemaType.STRING, description: "The name of the tool to execute" },
-                  argumentsTemplate: { type: SchemaType.OBJECT, description: "The arguments to pass to the tool." },
-                  fallbackStrategy: { type: SchemaType.STRING, description: "What to do if this step fails" },
-                },
-                required: ["id", "description", "tool", "argumentsTemplate"],
-              }
-            }
-          },
-          required: ["goal", "steps"],
-        } as unknown as Schema,
-      },
-    });
-
+  async createPlan(userInput: string, classification: TaskClassification, context?: string, runId?: string): Promise<Plan> {
     const toolDescriptions = registry.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n');
     
     let systemInstruction = PLAN_SYSTEM_PROMPT
@@ -56,16 +26,17 @@ ${userInput}
 `;
 
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        systemInstruction,
-      });
-
-      const responseText = result.response.text();
-      const parsedJson = JSON.parse(responseText);
+      const result = await ModelRouter.generateObject(
+        prompt,
+        PlanSchema,
+        {
+          model: this.modelName,
+          system: systemInstruction,
+          runId
+        }
+      );
       
-      // Validate with Zod
-      return PlanSchema.parse(parsedJson);
+      return result;
     } catch (error) {
       console.error("Planning error:", error);
       throw new Error("Failed to generate a valid plan: " + (error instanceof Error ? error.message : String(error)));

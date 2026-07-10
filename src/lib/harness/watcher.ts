@@ -60,19 +60,34 @@ export class WatcherEngine {
 
       // 2. Perform Action
       let result: any = null;
+      
+      const run = await prisma.agentRun.create({
+        data: {
+          userId: watcher.userId,
+          prompt: `Watcher ${watcher.name} triggered`,
+          status: "running",
+          channel: "watcher",
+        }
+      });
+
       if (watcher.action === "spawn_agent") {
         const payload = watcher.actionPayload as { prompt: string };
         if (payload && payload.prompt) {
            console.log(`[WatcherEngine] Spawning agent for ${watcher.name}`);
-           result = await pipeline.run(payload.prompt, { cwd: process.cwd(), env: process.env as Record<string, string> }, { apiKey: process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "" });
+           result = await pipeline.run(payload.prompt, { cwd: process.cwd(), env: process.env as Record<string, string>, userId: watcher.userId, runId: run.id }, { apiKey: process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "" });
         }
       } else if (watcher.action === "run_mcp") {
         const payload = watcher.actionPayload as { server: string; tool: string; args: any };
         if (payload && payload.server && payload.tool) {
            console.log(`[WatcherEngine] Running MCP tool for ${watcher.name}`);
-           result = await mcpClient.executeTool(payload, { cwd: process.cwd(), env: process.env as Record<string, string> });
+           result = await mcpClient.executeTool(payload, { cwd: process.cwd(), env: process.env as Record<string, string>, userId: watcher.userId, runId: run.id, toolCallId: 'watcher-tool-call' });
         }
       }
+
+      await prisma.agentRun.update({
+        where: { id: run.id },
+        data: { status: "completed", response: result ? JSON.stringify(result) : "" }
+      });
 
       // 3. Log Event
       await prisma.watcherEvent.create({

@@ -13,25 +13,25 @@ INSTRUCTIONS:
 
 EXAMPLE 1:
 User: "What time is my next meeting?"
-Tools: get_calendar_events
+Tools: calendar_list_events
 Output:
 {
   "type": "question",
   "complexity": "low",
-  "requiredTools": ["get_calendar_events"],
+  "requiredTools": ["calendar_list_events"],
   "estimatedSteps": 1,
   "reasoning": "Simple read of the calendar to find the next event."
 }
 
 EXAMPLE 2:
-User: "Find the cheapest flight to Tokyo next month and book it using my saved card, then email the itinerary to my wife."
-Tools: browser_navigate, browser_act, send_email, get_memory
+User: "Find the latest news about AI and read the project readme."
+Tools: tavily_search, read_file
 Output:
 {
   "type": "task",
-  "complexity": "high",
-  "requiredTools": ["get_memory", "browser_navigate", "browser_act", "send_email"],
-  "estimatedSteps": 5,
-  "reasoning": "Requires retrieving wife's email and card info from memory, navigating a flight site, performing multi-step booking, and sending an email."
+  "complexity": "medium",
+  "requiredTools": ["tavily_search", "read_file"],
+  "estimatedSteps": 2,
+  "reasoning": "Requires searching the web for news and reading a local file."
 }
 `;

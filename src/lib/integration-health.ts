@@ -176,8 +176,8 @@ export async function checkTelegramHealth(userId?: string): Promise<IntegrationH
     let liveVerified = connection.status === "live_verified";
     
     try {
-      const { probeTelegramHealth } = await import("./telegram");
-      const isHealthy = await probeTelegramHealth(userId);
+      const { TelegramService } = await import("./services/telegram-service");
+      const isHealthy = await TelegramService.probeHealth(userId);
       if (isHealthy) {
         liveVerified = true;
       } else {

@@ -1,14 +1,29 @@
 import { Plan, PlanStep, StepResult } from "./types";
 import { registry, ToolContext } from "../tools/registry";
 
+import { ApprovalRequiredError } from "../errors";
+import { ApprovalService } from "../agent-runtime/approval-service";
+import { prisma } from "../prisma";
+
+export class PipelinePausedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PipelinePausedError';
+  }
+}
+
 export class TaskExecutor {
   constructor() {}
 
-  async executePlan(plan: Plan, context: ToolContext): Promise<StepResult[]> {
-    const results: StepResult[] = [];
-    const stepOutputs: Record<string, any> = {};
+  async executePlan(plan: Plan, context: ToolContext, previousState?: { results: StepResult[], outputs: Record<string, any> }): Promise<StepResult[]> {
+    const results: StepResult[] = previousState?.results || [];
+    const stepOutputs: Record<string, any> = previousState?.outputs || {};
 
     for (const step of plan.steps) {
+      if (stepOutputs[step.id]) {
+        console.log(`[Executor] Skipping already completed step ${step.id}`);
+        continue;
+      }
       console.log(`[Executor] Executing step ${step.id}: ${step.description}`);
       
       try {
@@ -28,6 +43,22 @@ export class TaskExecutor {
         results.push(result);
         stepOutputs[step.id] = output;
       } catch (error) {
+        if (error instanceof ApprovalRequiredError) {
+          console.log(`[Executor] Step ${step.id} requires approval. Pausing execution.`);
+          await ApprovalService.createApproval(error.toolCallId);
+          
+          // Save state to AgentRun
+          await prisma.agentRun.update({
+            where: { id: context.runId },
+            data: {
+              contextSnapshot: { results, outputs: stepOutputs } as any,
+              currentPhase: step.id
+            }
+          });
+
+          throw new PipelinePausedError(`Pipeline paused for approval on step ${step.id}`);
+        }
+
         console.error(`[Executor] Error in step ${step.id}:`, error);
         
         const result: StepResult = {

@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { ToolContext } from "./registry";
+import { ToolExecutionContext } from "./tool-manifest";
 
 const execAsync = promisify(exec);
 
@@ -34,7 +34,7 @@ function resolvePath(filePath: string, cwd: string): string {
   return path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath);
 }
 
-export async function executeReadFile(args: ReadFileArgs, context: ToolContext): Promise<string> {
+export async function executeReadFile(args: ReadFileArgs, context: ToolExecutionContext): Promise<string> {
   const targetPath = resolvePath(args.path, context.cwd);
   try {
     return await fs.readFile(targetPath, "utf-8");
@@ -43,7 +43,7 @@ export async function executeReadFile(args: ReadFileArgs, context: ToolContext):
   }
 }
 
-export async function executeWriteFile(args: WriteFileArgs, context: ToolContext): Promise<string> {
+export async function executeWriteFile(args: WriteFileArgs, context: ToolExecutionContext): Promise<string> {
   const targetPath = resolvePath(args.path, context.cwd);
   try {
     // Ensure directory exists
@@ -55,7 +55,7 @@ export async function executeWriteFile(args: WriteFileArgs, context: ToolContext
   }
 }
 
-export async function executeListDir(args: ListDirArgs, context: ToolContext): Promise<string> {
+export async function executeListDir(args: ListDirArgs, context: ToolExecutionContext): Promise<string> {
   const targetPath = resolvePath(args.path, context.cwd);
   try {
     const entries = await fs.readdir(targetPath, { withFileTypes: true });
@@ -69,7 +69,7 @@ export async function executeListDir(args: ListDirArgs, context: ToolContext): P
   }
 }
 
-export async function executeRunCommand(args: RunCommandArgs, context: ToolContext): Promise<string> {
+export async function executeRunCommand(args: RunCommandArgs, context: ToolExecutionContext): Promise<string> {
   const cwd = args.cwd ? resolvePath(args.cwd, context.cwd) : context.cwd;
   console.log(`[RunCommand] Executing: ${args.command} in ${cwd}`);
   

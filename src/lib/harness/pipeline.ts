@@ -49,6 +49,13 @@ export class AgentPipeline {
     
     if (options.callbacks?.onPlanned) options.callbacks.onPlanned(plan);
 
+    // Save classification and plan to DB for observability and resuming
+    const { prisma } = await import("../prisma");
+    await prisma.agentRun.update({
+      where: { id: toolContext.runId },
+      data: { classification: classification as any, plan: plan as any }
+    });
+
     // 3. Execution
     const results = await this.executor.executePlan(plan, toolContext);
     
@@ -66,5 +73,37 @@ export class AgentPipeline {
     const planModel = this.router.route(classification, "plan", options.routerOptions).modelName;
     const planner = new TaskPlanner(options.apiKey, planModel);
     return await planner.createPlan(userInput, classification, options.context);
+  }
+
+  async resume(runId: string, options: PipelineOptions): Promise<SynthesisResult> {
+    const { prisma } = await import("../prisma");
+    const run = await prisma.agentRun.findUnique({ where: { id: runId } });
+    if (!run) throw new Error(`Cannot resume: Run ${runId} not found`);
+    if (!run.plan) throw new Error(`Cannot resume: Run ${runId} has no plan`);
+
+    const plan = run.plan as any;
+    const contextSnapshot = run.contextSnapshot as { results: any[], outputs: Record<string, any> } | undefined;
+    
+    const toolContext: ToolContext = {
+      userId: run.userId,
+      runId: run.id,
+      cwd: process.cwd(),
+      env: process.env as Record<string, string>,
+    };
+
+    console.log(`[Pipeline] Resuming run ${runId}...`);
+    
+    // 3. Resume Execution
+    const results = await this.executor.executePlan(plan, toolContext, contextSnapshot);
+    
+    // 4. Synthesis
+    const classification = run.classification || { type: "task", complexity: "medium" };
+    const synthesizeModel = this.router.route(classification as any, "synthesize", options.routerOptions).modelName;
+    const synthesizer = new TaskSynthesizer(options.apiKey, synthesizeModel);
+    
+    const synthesis = await synthesizer.synthesize(run.prompt, plan, results);
+    console.log(`[Pipeline] Resumed synthesis complete for run ${runId}`);
+    
+    return synthesis;
   }
 }

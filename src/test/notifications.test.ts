@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { notifyCriticalTasks, markAllRead, getUnreadNotifications } from '@/lib/notifications';
 import { prisma } from '@/lib/prisma';
 import * as email from '@/lib/email';
-import * as telegram from '@/lib/telegram';
+import * as telegramService from '@/lib/services/telegram-service';
 import * as alertPolicy from '@/lib/alert-policy';
 import type { Task } from '@prisma/client';
 
@@ -12,8 +12,10 @@ vi.mock('@/lib/email', () => ({
   criticalAlertEmail: vi.fn(),
 }));
 
-vi.mock('@/lib/telegram', () => ({
-  sendTelegramMessage: vi.fn(),
+vi.mock('@/lib/services/telegram-service', () => ({
+  TelegramService: {
+    sendMessage: vi.fn(),
+  }
 }));
 
 vi.mock('@/lib/alert-policy', () => ({
@@ -32,7 +34,7 @@ describe('Notifications Dispatch', () => {
       userId: 'u1',
     } as unknown as Task;
 
-    vi.mocked(telegram.sendTelegramMessage).mockResolvedValue(false); // Telegram fails/not connected
+    vi.mocked(telegramService.TelegramService.sendMessage).mockResolvedValue(null); // Telegram fails/not connected
     vi.mocked(email.isEmailConfigured).mockReturnValue(true);
     vi.mocked(alertPolicy.evaluateAlertPolicy).mockResolvedValue({ allowed: true });
     
@@ -90,7 +92,7 @@ describe('Notifications Dispatch', () => {
       userId: 'u1',
     } as unknown as Task;
 
-    vi.mocked(telegram.sendTelegramMessage).mockResolvedValue(true); 
+    vi.mocked(telegramService.TelegramService.sendMessage).mockResolvedValue({ message_id: 123 } as any); 
     
     // @ts-expect-error mock
     prisma.notificationDelivery.create.mockResolvedValue({ id: 'del-2' });

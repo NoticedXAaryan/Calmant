@@ -1,0 +1,41 @@
+@theme {
+  --color-calmant-electric-blue: #0070f3;
+  --color-calmant-citrus-green: #32d74b;
+  --color-calmant-coral: #ff453a;
+  --color-calmant-violet: #bf5af2;
+  --color-calmant-amber: #ff9f0a;
+  --color-calmant-cyan: #64d2ff;
+  --color-calmant-surface: var(--background);
+  --color-calmant-surface-raised: var(--secondary);
+  --color-calmant-border: var(--border);
+
+  --radius-calmant-sm: 6px;
+  --radius-calmant-md: 10px;
+  --radius-calmant-lg: 14px;
+
+  --shadow-calmant-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-calmant-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  --transition-calmant-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-calmant-spring: 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.calmant-panel {
+  background-color: var(--color-calmant-surface);
+  border: 1px solid var(--color-calmant-border);
+  border-radius: var(--radius-calmant-md);
+  box-shadow: var(--shadow-calmant-subtle);
+  transition: all var(--transition-calmant-fast);
+}
+
+.calmant-panel-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-calmant-elevated);
+}
+
+.calmant-interactive {
+  transition: transform var(--transition-calmant-fast);
+}
+.calmant-interactive:active {
+  transform: scale(0.97);
+}

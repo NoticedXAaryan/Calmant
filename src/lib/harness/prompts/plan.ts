@@ -15,34 +15,23 @@ INSTRUCTIONS:
 5. Output your plan strictly adhering to the JSON schema provided.
 
 EXAMPLE:
-User: "Find the cheapest flight to Tokyo next month and email the itinerary to my wife."
+User: "Find the latest news about AI and read the project readme."
 Output:
 {
-  "goal": "Book flight to Tokyo and email wife",
+  "goal": "Search AI news and read readme",
   "steps": [
     {
-      "id": "get_wife_email",
-      "description": "Look up the wife's email address in memory",
-      "tool": "get_memory",
-      "argumentsTemplate": { "query": "wife email address" },
+      "id": "search_news",
+      "description": "Search for AI news",
+      "tool": "tavily_search",
+      "argumentsTemplate": { "query": "latest AI news" },
       "fallbackStrategy": "ask_user_for_help"
     },
     {
-      "id": "search_flights",
-      "description": "Search for flights to Tokyo next month",
-      "tool": "browser_navigate",
-      "argumentsTemplate": { "url": "https://www.google.com/travel/flights?q=flights+to+tokyo+next+month" },
-      "fallbackStrategy": "ask_user_for_help"
-    },
-    {
-      "id": "send_email",
-      "description": "Send the itinerary",
-      "tool": "send_email",
-      "argumentsTemplate": { 
-        "to": "{{get_wife_email.email}}", 
-        "subject": "Tokyo Flight Itinerary", 
-        "body": "Here are the flight options: {{search_flights.extracted_text}}" 
-      },
+      "id": "read_readme",
+      "description": "Read the README.md file",
+      "tool": "read_file",
+      "argumentsTemplate": { "path": "README.md" },
       "fallbackStrategy": "skip"
     }
   ]

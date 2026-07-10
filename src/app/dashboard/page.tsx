@@ -2,29 +2,22 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 
-import {
-  ExecutionPlan,
-  FocusState,
-  CaptureDraft,
-  CaptureAnalysis,
-  PlanTask
-} from "./types";
-
-import { TodayHeader } from "@/components/app/dashboard/TodayHeader";
-import { NextActionCard } from "@/components/app/dashboard/NextActionCard";
+import { CommandHeader } from "@/components/app/premium/CommandHeader";
+import { PendingApprovalPanel } from "@/components/app/premium/PendingApprovalPanel";
+import { ActiveMissionRail } from "@/components/app/premium/ActiveMissionRail";
 import { QuickCapture } from "@/components/app/dashboard/QuickCapture";
 import { SignalGrid } from "@/components/app/dashboard/SignalGrid";
-import { FocusSessionCard } from "@/components/app/dashboard/FocusSessionCard";
 import { RescuePlanTimeline } from "@/components/app/dashboard/RescuePlanTimeline";
-import { TaskQueueTable } from "@/components/app/dashboard/TaskQueueTable";
-import { PendingApprovals } from "@/components/app/dashboard/PendingApprovals";
+
+import { ExecutionPlan, CaptureDraft, CaptureAnalysis } from "./types";
+import { getStatusConfig } from "@/lib/design/status";
 
 function LoadingSurface() {
   return (
-    <div className="flex min-h-[420px] items-center justify-center">
-      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    <div className="flex h-[calc(100vh-80px)] items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-[var(--color-calmant-electric-blue)]" />
     </div>
   );
 }
@@ -37,10 +30,7 @@ export default function DashboardPage() {
   const [draft, setDraft] = useState<CaptureDraft | null>(null);
   const [analysis, setAnalysis] = useState<CaptureAnalysis | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [activeFocus, setActiveFocus] = useState<FocusState | null>(null);
-  const [tick, setTick] = useState(0);
+  const [approvals, setApprovals] = useState<any[]>([]);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -53,34 +43,29 @@ export default function DashboardPage() {
     return () => window.clearTimeout(id);
   }, [router]);
 
-  const loadPlan = useCallback(async () => {
-    setError(null);
-    const res = await fetch("/api/plan", { cache: "no-store" });
-    const data = await res.json();
+  const loadData = useCallback(async () => {
+    try {
+      const [planRes, appRes] = await Promise.all([
+        fetch("/api/plan", { cache: "no-store" }),
+        fetch("/api/approvals", { cache: "no-store" })
+      ]);
+      const planData = await planRes.json();
+      const appData = await appRes.json();
 
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || "Unable to build plan");
+      if (planData.success) setPlan(planData.data);
+      if (appData.success) setApprovals(appData.data);
+    } catch (e) {
+      console.error(e);
     }
-
-    setPlan(data.data);
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    const id = window.setTimeout(() => {
-      loadPlan().catch((err) => setError(err.message));
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [ready, loadPlan]);
-
-  useEffect(() => {
-    if (!activeFocus) return;
-    const interval = window.setInterval(() => setTick(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, [activeFocus]);
-
-  const focusRemaining = activeFocus ? Math.max(0, activeFocus.endsAt - tick) : 0;
-  const currentTask = plan?.recommendedTask ?? null;
+    loadData();
+    // Poll for updates every 10 seconds
+    const interval = setInterval(loadData, 10000);
+    return () => clearInterval(interval);
+  }, [ready, loadData]);
 
   const captureTask = async (event: FormEvent) => {
     event.preventDefault();
@@ -88,26 +73,17 @@ export default function DashboardPage() {
     if (!command) return;
 
     setBusy("capture");
-    setError(null);
-    setNotice(null);
     try {
       const res = await fetch("/api/tasks/nlp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not capture task");
-      }
-
       const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Could not understand task");
-      setDraft(data.data.draft);
-      setAnalysis(data.data.analysis);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not capture task");
+      if (data.success) {
+        setDraft(data.data.draft);
+        setAnalysis(data.data.analysis);
+      }
     } finally {
       setBusy(null);
     }
@@ -115,142 +91,35 @@ export default function DashboardPage() {
 
   const confirmDraft = async () => {
     if (!draft) return;
-
     setBusy("confirm-draft");
-    setError(null);
-    setNotice(null);
     try {
       const res = await fetch("/api/tasks/nlp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ confirmed: true, draft }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Could not create task");
-
-      const notification = data.data?.notification;
-      if (notification?.sent) {
-        setNotice("Task confirmed and email notification sent.");
-      } else if (notification?.reason) {
-        setNotice(`Task confirmed. ${notification.reason}`);
+      if (res.ok) {
+        setCapture("");
+        setDraft(null);
+        setAnalysis(null);
+        await loadData();
       }
-      setCapture("");
-      setDraft(null);
-      setAnalysis(null);
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create task");
     } finally {
       setBusy(null);
     }
   };
 
-  const patchTask = async (taskId: string, payload: Record<string, unknown>) => {
-    const res = await fetch(`/api/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Task update failed");
-    }
-  };
-
-  const startTask = async (task: PlanTask) => {
-    setBusy(`start-${task.id}`);
-    setError(null);
-    setNotice(null);
-    try {
-      await patchTask(task.id, { status: "IN_PROGRESS" });
-      const now = Date.now();
-      setTick(now);
-      setActiveFocus({
-        taskId: task.id,
-        title: task.title,
-        nextAction: task.nextAction,
-        endsAt: now + task.focusMins * 60000,
-        totalMins: task.focusMins,
-      });
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start task");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const completeTask = async (task: PlanTask) => {
-    setBusy(`complete-${task.id}`);
-    setError(null);
-    setNotice(null);
-    try {
-      await patchTask(task.id, { status: "DONE" });
-      if (activeFocus?.taskId === task.id) setActiveFocus(null);
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not complete task");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const snoozeTask = async (task: PlanTask) => {
-    setBusy(`snooze-${task.id}`);
-    setError(null);
-    setNotice(null);
-    try {
-      const base = Math.max(Date.now(), new Date(task.deadline).getTime());
-      await patchTask(task.id, {
-        deadline: new Date(base + 30 * 60000).toISOString(),
-        snoozeCount: task.snoozeCount + 1,
-      });
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not snooze task");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const decomposeTask = async (task: PlanTask) => {
-    setBusy(`decompose-${task.id}`);
-    setError(null);
-    setNotice(null);
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/decompose`, { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Could not break down task");
-      }
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not break down task");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const refresh = async () => {
-    setBusy("refresh");
-    setError(null);
-    setNotice(null);
-    try {
-      await loadPlan();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not refresh plan");
-    } finally {
-      setBusy(null);
-    }
+  const handleApprovalReview = (id: string) => {
+    // In a real app, this would open a modal to review. For now, navigate to approvals page.
+    router.push("/dashboard/approvals");
   };
 
   const stats = useMemo(() => {
     if (!plan) return [];
     return [
-      { label: "Critical", value: plan.stats.critical, className: "text-red-600 dark:text-red-400" },
-      { label: "Hot", value: plan.stats.hot, className: "text-orange-600 dark:text-orange-400" },
-      { label: "Warm", value: plan.stats.warm, className: "text-amber-600 dark:text-amber-400" },
+      { label: "Critical", value: plan.stats.critical, className: "text-[var(--color-calmant-coral)]" },
+      { label: "Hot", value: plan.stats.hot, className: "text-[var(--color-calmant-amber)]" },
+      { label: "Warm", value: plan.stats.warm, className: "text-[var(--color-calmant-electric-blue)]" },
       { label: "Done", value: plan.stats.done, className: "text-muted-foreground" },
     ];
   }, [plan]);
@@ -259,89 +128,96 @@ export default function DashboardPage() {
     return <LoadingSurface />;
   }
 
+  const mappedApprovals = approvals.map(a => ({
+    id: a.id,
+    title: a.title,
+    description: a.description,
+    riskLevel: (a.payload?.riskLevel || 'MEDIUM') as 'LOW'|'MEDIUM'|'HIGH',
+    timeAgo: 'Just now',
+    onReview: handleApprovalReview
+  }));
+
+  const activeMissions = plan.tasks
+    .filter(t => t.status === 'IN_PROGRESS')
+    .map(t => ({
+      id: t.id,
+      title: t.title,
+      progress: 50,
+      statusText: 'Executing planned steps...'
+    }));
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-8 w-full">
-        <header className="flex items-end justify-between border-b border-border/50 pb-6">
-          <TodayHeader busy={busy} onRefresh={refresh} />
-        </header>
-
-        {error && (
-          <div className="rounded-none border-l-2 border-destructive bg-destructive/5 px-4 py-3 text-sm text-destructive">
-            {error}
+    <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-8 w-full animate-in fade-in duration-500">
+      <CommandHeader 
+        title="Command Center"
+        subtitle="Your operations overview and next critical actions."
+        activeStatusBadge={
+          <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${getStatusConfig(activeMissions.length > 0 ? 'active' : 'success').bgColorClass} ${getStatusConfig(activeMissions.length > 0 ? 'active' : 'success').colorClass}`}>
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${activeMissions.length > 0 ? 'bg-[var(--color-calmant-electric-blue)]' : 'bg-[var(--color-calmant-citrus-green)]'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${activeMissions.length > 0 ? 'bg-[var(--color-calmant-electric-blue)]' : 'bg-[var(--color-calmant-citrus-green)]'}`}></span>
+            </span>
+            {activeMissions.length > 0 ? `${activeMissions.length} Active` : 'Idle'}
           </div>
-        )}
-        {notice && (
-          <div className="rounded-none border-l-2 border-primary bg-primary/5 px-4 py-3 text-sm text-foreground">
-            {notice}
-          </div>
-        )}
+        }
+        commandInput={
+          <QuickCapture
+            capture={capture}
+            draft={draft}
+            analysis={analysis}
+            busy={busy}
+            onChangeCapture={setCapture}
+            onSetDraft={setDraft}
+            onSetAnalysis={setAnalysis}
+            onSubmitCapture={captureTask}
+            onConfirmDraft={confirmDraft}
+          />
+        }
+      />
 
-        <section className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div className="flex flex-col gap-8">
-            <PendingApprovals />
-            
-            <div className="border border-border/50 bg-surface/50 p-6 relative">
-              {/* Decorative corner accent */}
-              <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-primary/40 -translate-x-px -translate-y-px pointer-events-none" />
-              <NextActionCard
-                task={currentTask}
-                busy={busy}
-                onStart={startTask}
-                onDecompose={decomposeTask}
-                onSnooze={snoozeTask}
-                onComplete={completeTask}
-              />
-            </div>
-            
-            <div className="border-t border-border/50 pt-8">
-              <TaskQueueTable 
-                plan={plan}
-                busy={busy}
-                onStart={startTask}
-                onDecompose={decomposeTask}
-                onSnooze={snoozeTask}
-                onComplete={completeTask}
-              />
-            </div>
-          </div>
+      {mappedApprovals.length > 0 && (
+        <PendingApprovalPanel approvals={mappedApprovals} onReviewAll={() => router.push('/dashboard/approvals')} />
+      )}
 
-          <aside className="flex flex-col gap-8 lg:border-l lg:border-border/50 lg:pl-8">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Command</div>
-              <QuickCapture
-                capture={capture}
-                draft={draft}
-                analysis={analysis}
-                busy={busy}
-                onChangeCapture={setCapture}
-                onSetDraft={setDraft}
-                onSetAnalysis={setAnalysis}
-                onSubmitCapture={captureTask}
-                onConfirmDraft={confirmDraft}
-              />
-            </div>
-
-            <div>
-              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Telemetry</div>
-              <SignalGrid stats={stats} />
-            </div>
-
-            {activeFocus && (
-              <div className="border border-accent/20 bg-accent/5 p-4">
-                <FocusSessionCard 
-                  activeFocus={activeFocus} 
-                  focusRemaining={focusRemaining} 
-                  onStop={() => setActiveFocus(null)} 
-                />
-              </div>
-            )}
-            
-            <div>
-              <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground mb-4">Horizon</div>
-              <RescuePlanTimeline plan={plan} />
-            </div>
-          </aside>
+      {activeMissions.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-4">Active Missions</h2>
+          <ActiveMissionRail missions={activeMissions} />
         </section>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-4">Upcoming Schedule</h2>
+            <div className="calmant-panel p-6 flex flex-col items-center justify-center text-center min-h-[200px] bg-muted/20">
+              <p className="text-muted-foreground text-sm">Schedule synchronization is running in the background.</p>
+              <button className="mt-4 text-xs font-medium text-[var(--color-calmant-electric-blue)] flex items-center hover:underline">
+                View Calendar <ArrowRight className="h-3 w-3 ml-1" />
+              </button>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-4">Recent Artifacts</h2>
+            <div className="calmant-panel p-6 flex flex-col items-center justify-center text-center min-h-[200px] bg-muted/20">
+              <p className="text-muted-foreground text-sm">No recent artifacts generated.</p>
+            </div>
+          </section>
+        </div>
+
+        <aside className="space-y-8">
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-4">Telemetry</h2>
+            <SignalGrid stats={stats} />
+          </section>
+          
+          <section>
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground mb-4">Horizon</h2>
+            <RescuePlanTimeline plan={plan} />
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

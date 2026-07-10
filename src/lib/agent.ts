@@ -1,7 +1,8 @@
 import { buildUserContext, formatContextForPrompt } from "./agent-context";
 import { prisma } from "./prisma";
 import { AgentPipeline } from "./harness/pipeline";
-import { addMemory } from "./memory";
+import { PipelinePausedError } from "./harness/executor";
+import { LearningService } from "./services/learning-service";
 
 const MAX_AGENT_MESSAGE_CHARS = 8000;
 
@@ -29,7 +30,7 @@ export async function agentReply(message: string, userId: string, timeZone?: str
     
     const result = await pipeline.run(
       cleanMessage, 
-      { cwd: process.cwd(), env: process.env as Record<string, string> },
+      { cwd: process.cwd(), env: process.env as Record<string, string>, userId, runId: run.id, timeZone },
       { apiKey, context }
     );
 
@@ -42,15 +43,21 @@ export async function agentReply(message: string, userId: string, timeZone?: str
 
     // Extract and store memories from this conversation
     try {
-      const conversationText = `User: ${cleanMessage}\nAssistant: ${reply}`;
-      await addMemory(conversationText, userId);
+      if (result.learnings && result.learnings.length > 0) {
+        // Send asynchronously so we don't block the reply
+        LearningService.processLearnings(userId, run.id, result.learnings).catch(e => console.warn(e));
+      }
     } catch (memErr) {
       console.warn("[agentReply] Memory storage failed:", memErr);
-      // Non-fatal — don't block the response
     }
 
     return reply;
   } catch (err) {
+    if (err instanceof PipelinePausedError) {
+      console.log(`[agentReply] Pipeline paused for run ${run.id} waiting for approval.`);
+      return "I have paused execution because a tool requires your explicit approval. Please review your pending approvals.";
+    }
+
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("[agentReply] Error running pipeline:", errorMsg);
     await prisma.agentRun
@@ -63,7 +70,7 @@ export async function agentReply(message: string, userId: string, timeZone?: str
   }
 }
 
-export async function* agentReplyStream(message: string, userId: string, timeZone?: string): AsyncGenerator<{ content?: string, error?: string, thinking?: boolean, responseId?: string }> {
+export async function* agentReplyStream(message: string, userId: string, timeZone?: string): AsyncGenerator<{ content?: string, error?: string, thinking?: boolean, responseId?: string, event?: { message: string } }> {
   const cleanMessage = normalizeMessage(message);
   if (!cleanMessage) {
     yield { content: "Send me a task, deadline, question, or plan to work on." };
@@ -85,13 +92,40 @@ export async function* agentReplyStream(message: string, userId: string, timeZon
   try {
     const context = formatContextForPrompt(await buildUserContext(userId, cleanMessage), timeZone);
     const apiKey = process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || "";
-    
-    // Await the pipeline directly — no polling loop
-    const result = await pipeline.run(
+
+    const eventQueue: any[] = [];
+    let pipelineDone = false;
+
+    const pipelinePromise = pipeline.run(
       cleanMessage,
-      { cwd: process.cwd(), env: process.env as Record<string, string> },
-      { apiKey, context }
-    );
+      { cwd: process.cwd(), env: process.env as Record<string, string>, userId, runId: run.id, timeZone },
+      { 
+        apiKey, 
+        context,
+        callbacks: {
+          onClassified: (c) => eventQueue.push({ event: { message: `Classified as ${c.type}` } }),
+          onPlanned: () => eventQueue.push({ event: { message: `Formulated plan` } }),
+          onStepComplete: (r) => eventQueue.push({ event: { message: `Completed ${r.tool}` } }),
+        }
+      }
+    ).finally(() => {
+      pipelineDone = true;
+    });
+
+    // Stream events while pipeline is running
+    while (!pipelineDone) {
+      while (eventQueue.length > 0) {
+        yield { ...eventQueue.shift(), responseId };
+      }
+      await new Promise(r => setTimeout(r, 200)); // sleep briefly to avoid blocking
+    }
+
+    // Flush any remaining events
+    while (eventQueue.length > 0) {
+      yield { ...eventQueue.shift(), responseId };
+    }
+
+    const result = await pipelinePromise;
 
     const reply = result.response || "I could not produce a useful response for that request.";
 
@@ -102,16 +136,23 @@ export async function* agentReplyStream(message: string, userId: string, timeZon
 
     // Extract and store memories from this conversation
     try {
-      const conversationText = `User: ${cleanMessage}\nAssistant: ${reply}`;
-      await addMemory(conversationText, userId);
+      if (result.learnings && result.learnings.length > 0) {
+        // Send asynchronously so we don't block the reply
+        LearningService.processLearnings(userId, run.id, result.learnings).catch(e => console.warn(e));
+      }
     } catch (memErr) {
       console.warn("[agentReplyStream] Memory storage failed:", memErr);
-      // Non-fatal — don't block the response
     }
 
     // Yield the final content exactly once
     yield { content: reply, responseId };
   } catch (err) {
+    if (err instanceof PipelinePausedError) {
+      console.log(`[agentReplyStream] Pipeline paused for run ${run.id} waiting for approval.`);
+      yield { content: "I have paused execution because a tool requires your explicit approval. Please review your pending approvals.", responseId };
+      return;
+    }
+
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("[agentReplyStream] Error running pipeline:", errorMsg);
     await prisma.agentRun

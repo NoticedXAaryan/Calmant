@@ -1,44 +1,15 @@
-import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import { SYNTHESIZE_SYSTEM_PROMPT } from "./prompts/synthesize";
 import { Plan, StepResult, SynthesisResult, SynthesisResultSchema } from "./types";
+import { ModelRouter } from "../agent-runtime/model-router";
 
 export class TaskSynthesizer {
-  private genAI: GoogleGenerativeAI;
   private modelName: string;
 
-  constructor(apiKey: string, modelName: string = "gemini-2.5-pro") {
-    this.genAI = new GoogleGenerativeAI(apiKey);
+  constructor(apiKey: string, modelName: string = "gpt-4o") {
     this.modelName = modelName;
   }
 
-  async synthesize(userInput: string, plan: Plan, results: StepResult[]): Promise<SynthesisResult> {
-    const model = this.genAI.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            response: { type: SchemaType.STRING, description: "The final message to return to the user" },
-            learnings: {
-              type: SchemaType.ARRAY,
-              description: "New facts or preferences learned",
-              items: {
-                type: SchemaType.OBJECT,
-                properties: {
-                  fact: { type: SchemaType.STRING },
-                  category: { type: SchemaType.STRING },
-                },
-                required: ["fact", "category"],
-              }
-            },
-            proposeSkill: { type: SchemaType.BOOLEAN, description: "Whether to propose saving as a skill" },
-          },
-          required: ["response"],
-        } as unknown as Schema,
-      },
-    });
-
+  async synthesize(userInput: string, plan: Plan, results: StepResult[], runId?: string): Promise<SynthesisResult> {
     const prompt = `
 User Request:
 ${userInput}
@@ -51,15 +22,17 @@ ${JSON.stringify(results, null, 2)}
 `;
 
     try {
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        systemInstruction: SYNTHESIZE_SYSTEM_PROMPT,
-      });
-
-      const responseText = result.response.text();
-      const parsedJson = JSON.parse(responseText);
+      const result = await ModelRouter.generateObject(
+        prompt,
+        SynthesisResultSchema,
+        {
+          model: this.modelName,
+          system: SYNTHESIZE_SYSTEM_PROMPT,
+          runId
+        }
+      );
       
-      return SynthesisResultSchema.parse(parsedJson);
+      return result;
     } catch (error) {
       console.error("Synthesis error:", error);
       // Fallback response if the model fails to synthesize

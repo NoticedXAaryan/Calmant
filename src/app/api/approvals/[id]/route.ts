@@ -27,46 +27,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ success: false, error: "Already processed" }, { status: 400 });
     }
 
-    if (action === "reject") {
-      await prisma.approvalRequest.update({
-        where: { id: approval.id },
-        data: { status: "rejected", reviewedAt: new Date() },
-      });
-      return NextResponse.json({ success: true, status: "rejected" });
-    }
+
 
     // Process approval based on type
-    let result: any = null;
     try {
-      if (approval.type === "email") {
-        const { sendEmail } = await import("@/lib/email");
-        const payload = approval.payload as { to: string; subject: string; html: string };
-        await sendEmail(payload.subject, payload.html, payload.to);
-        result = "Email sent";
-      } else if (approval.type === "task") {
-        // e.g. payload contains task fields
-        const payload = approval.payload as any;
-        await prisma.task.create({
-          data: {
-            userId: sessionUser.id,
-            title: payload.title,
-            description: payload.description,
-            deadline: payload.deadline ? new Date(payload.deadline) : new Date(),
-          }
+      const { ApprovalService } = await import("@/lib/agent-runtime/approval-service");
+      await ApprovalService.resolveApproval(approval.id, action as "approve" | "reject", sessionUser.id);
+      
+      if (action === "approve" && approval.agentRunId) {
+        // Resume the pipeline in the background
+        const { AgentPipeline } = await import("@/lib/harness/pipeline");
+        const pipeline = new AgentPipeline();
+        
+        // We don't await this because we want to respond to the API quickly
+        pipeline.resume(approval.agentRunId, {
+          apiKey: process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || ""
+        }).then(async (synthesis) => {
+           // We can notify the user via Telegram here or update DB again, but pipeline.resume already updates agentRun
+           const { prisma } = await import("@/lib/prisma");
+           await prisma.agentRun.update({
+             where: { id: approval.agentRunId! },
+             data: { status: "completed", response: synthesis.response }
+           });
+        }).catch(async (err) => {
+           console.error("[Resume Error]", err);
+           const { prisma } = await import("@/lib/prisma");
+           await prisma.agentRun.update({
+             where: { id: approval.agentRunId! },
+             data: { status: "failed", response: "Execution failed: " + err.message }
+           });
         });
-        result = "Task created";
-      } else {
-        // Mock generic execution
-        result = "Executed payload generic handler";
-        console.log(`[Approval] Executed ${approval.type}:`, approval.payload);
       }
       
-      await prisma.approvalRequest.update({
-        where: { id: approval.id },
-        data: { status: "executed", reviewedAt: new Date(), executedAt: new Date() },
-      });
-      
-      return NextResponse.json({ success: true, status: "executed", result });
+      return NextResponse.json({ success: true, status: action });
     } catch (execError: any) {
       console.error("[Approval Execute Error]", execError);
       return NextResponse.json({ success: false, error: "Execution failed: " + execError.message }, { status: 500 });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { ToolContext } from "./registry";
+import { ToolExecutionContext } from "./tool-manifest";
 
 const execAsync = promisify(exec);
 
@@ -31,7 +31,7 @@ export class MCPClient {
     this.servers.set(config.name, config);
   }
 
-  async executeTool(args: MCPToolArgs, context: ToolContext): Promise<string> {
+  async executeTool(args: MCPToolArgs, context: ToolExecutionContext): Promise<string> {
     const server = this.servers.get(args.server);
     if (!server) {
       throw new Error(`MCP Server '${args.server}' not found or not configured.`);
@@ -68,6 +68,6 @@ export class MCPClient {
 
 export const mcpClient = new MCPClient();
 
-export async function executeMCPTool(args: MCPToolArgs, context: ToolContext): Promise<string> {
+export async function executeMCPTool(args: MCPToolArgs, context: ToolExecutionContext): Promise<string> {
   return await mcpClient.executeTool(args, context);
 }

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { initTelegram } from '@/lib/telegram';
+import { TelegramService } from '@/lib/services/telegram-service';
 import { getUserId } from '@/lib/auth-utils';
 
 export async function GET() {
   try {
     await getUserId();
-    const status = await initTelegram();
+    const status = await TelegramService.initTelegram();
     return NextResponse.json({
       success: status.configured && status.running,
       message: status.label,
