@@ -74,11 +74,16 @@ export function CommandCenterDashboard() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-8 w-full animate-in fade-in duration-500">
       <CommandHeader 
-        stats={[
-          { label: "Active Goals", value: data.activeGoals.length, className: "text-[var(--color-calmant-electric-blue)]" },
-          { label: "Blockers", value: data.blockers.length, className: "text-[var(--color-calmant-coral)]" },
-          { label: "Approvals", value: data.approvals.length, className: "text-[var(--color-calmant-amber)]" },
-        ]}
+        title="Command Center"
+        subtitle="Your personal productivity headquarters."
+        commandInput={<div />}
+        activeStatusBadge={
+          <div className="flex items-center gap-4 text-sm font-medium bg-background/50 backdrop-blur-md px-4 py-2 rounded-full border border-border">
+            <span className="text-[var(--color-calmant-electric-blue)]">{data.activeGoals.length} Goals</span>
+            <span className="text-[var(--color-calmant-coral)]">{data.blockers.length} Blockers</span>
+            <span className="text-[var(--color-calmant-amber)]">{data.approvals.length} Approvals</span>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -142,7 +147,11 @@ export function CommandCenterDashboard() {
         </div>
 
         <div className="space-y-8">
-          <SignalGrid />
+          <SignalGrid stats={[
+            { label: "Active Goals", value: data.activeGoals.length, className: "text-[var(--color-calmant-electric-blue)]" },
+            { label: "Blockers", value: data.blockers.length, className: "text-[var(--color-calmant-coral)]" },
+            { label: "Approvals", value: data.approvals.length, className: "text-[var(--color-calmant-amber)]" },
+          ]} />
           
           <div className="space-y-4">
             <h2 className="text-xl font-medium tracking-tight text-foreground/90">Latest Report</h2>
@@ -157,7 +166,7 @@ export function CommandCenterDashboard() {
                   </span>
                 </div>
                 <div className="text-sm text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed bg-black/20 p-4 rounded-lg">
-                  {report.telegramSummary}
+                  {report.content}
                 </div>
               </div>
             ) : (

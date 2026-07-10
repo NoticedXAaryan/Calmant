@@ -51,8 +51,8 @@ export default async function SkillsPage() {
                       <Wrench className="w-5 h-5" />
                     </div>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider
-                      ${skill.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
-                      {skill.status}
+                      ${skill.enabled ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
+                      {skill.enabled ? 'active' : 'disabled'}
                     </span>
                   </div>
                   <div>
@@ -63,7 +63,7 @@ export default async function SkillsPage() {
                 <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    v{skill.version}
+                    v{skill.versionHash ? skill.versionHash.substring(0, 7) : "1.0"}
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />

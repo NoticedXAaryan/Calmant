@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const userId = await getUserId();
     const goal = await prisma.goal.findUnique({
       where: { id: params.id, userId },
@@ -38,9 +39,10 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const userId = await getUserId();
     const { action } = await request.json();
 

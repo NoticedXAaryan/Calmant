@@ -18,8 +18,7 @@ export class ReliabilityService {
       where: {
         status: "pending",
         createdAt: { lt: yesterday }
-      },
-      include: { agentRun: true }
+      }
     });
 
     for (const approval of stuckApprovals) {

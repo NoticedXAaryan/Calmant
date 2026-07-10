@@ -163,7 +163,7 @@ export class AgentPipeline {
       const { prisma } = await import("../prisma");
       await prisma.projectTask.create({
         data: {
-          title: "Implement New Skill for: " + classification.type,
+          title: "Implement New Skill for: " + ((classification as any).type || "task"),
           description: "The agent proposed creating a new skill for this resumed workflow",
           status: "pending",
           projectCellId: toolContext.projectCellId,

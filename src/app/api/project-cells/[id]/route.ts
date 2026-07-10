@@ -5,9 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const userId = await getUserId();
     
     // Check ownership
@@ -41,7 +42,7 @@ export async function GET(
     // Fetch QA results and memories connected to runs of these tasks
     const taskIds = projectCell.tasks.map(t => t.id);
     const qaResults = await prisma.qaResult.findMany({
-      where: { run: { projectTaskId: { in: taskIds } } }
+      where: { projectTaskId: { in: taskIds } }
     });
     
     const memoryCandidates = await prisma.agentMemory.findMany({

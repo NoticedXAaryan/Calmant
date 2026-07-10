@@ -14,7 +14,7 @@ export class TaskPlanner {
     const toolDescriptions = registry.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n');
     
     // Inject active skills
-    const { prisma } = await import("../../prisma");
+    const { prisma } = await import("../prisma");
     const skills = await prisma.skill.findMany({ where: { enabled: true } });
     const skillList = skills.length > 0 ? skills.map(s => `- ${s.name}: ${s.description}`).join('\n') : "No active skills available.";
 

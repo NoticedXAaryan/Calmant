@@ -37,7 +37,6 @@ export class CommandHandler {
     if (text === "/report now") {
       await bot.sendMessage(chatId, "Generating morning report...");
       const report = await ReportService.generateMorningReport(userId);
-      await bot.sendMessage(chatId, `**Morning Report**\n\n${report.telegramSummary}`, { parse_mode: "Markdown" });
       return true;
     }
 

@@ -1,8 +1,8 @@
 import TelegramBot from "node-telegram-bot-api";
-import { prisma } from "../../prisma";
-import { ApprovalService } from "../../agent-runtime/approval-service";
-import { MemoryRecordService } from "../../services/memory-record-service";
-import { CommandCenterService } from "../../services/command-center-service";
+import { prisma } from "../prisma";
+import { ApprovalService } from "../agent-runtime/approval-service";
+import { MemoryRecordService } from "../services/memory-record-service";
+import { CommandCenterService } from "../services/command-center-service";
 
 export class CallbackHandler {
   static async handle(bot: TelegramBot, query: import("node-telegram-bot-api").CallbackQuery) {
