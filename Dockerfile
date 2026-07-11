@@ -26,6 +26,7 @@ ENV DATABASE_URL=$DATABASE_URL
 RUN npx prisma generate
 RUN npm run build
 
+# ── Runner stage ───────────────────────────────────────────
 FROM mcr.microsoft.com/playwright:v1.44.0-jammy AS runner
 WORKDIR /app
 
@@ -50,7 +51,7 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma: copy schema, generated client, AND CLI so start.sh doesn't re-download
+# Prisma: copy schema, generated client, AND full CLI for runtime db push
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
