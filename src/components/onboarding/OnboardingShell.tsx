@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { StepWelcome } from "./StepWelcome";
+import { StepVoiceIntro } from "./StepVoiceIntro";
 import { StepWorkMode } from "./StepWorkMode";
 import { StepCommitments } from "./StepCommitments";
 import { StepNotifications } from "./StepNotifications";
-import { StepMemoryConsent } from "./StepMemoryConsent";
 import { StepIntegrations } from "./StepIntegrations";
 import { StepPlanPreview } from "./StepPlanPreview";
 
@@ -69,7 +69,7 @@ export function OnboardingShell() {
     setData((prev) => ({ ...prev, ...updates }));
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 7));
+  const nextStep = () => setStep((s) => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   const completeOnboarding = async () => {
@@ -91,10 +91,10 @@ export function OnboardingShell() {
   const totalSteps = 7;
   const stepLabels = [
     "Welcome",
+    "About You",
     "Work Mode",
     "Commitments",
     "Alerts",
-    "Memory",
     "Connect",
     "Preview",
   ];
@@ -120,10 +120,10 @@ export function OnboardingShell() {
 
         {/* Current Step Content */}
         {step === 1 && <StepWelcome onNext={nextStep} />}
-        {step === 2 && <StepWorkMode data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
-        {step === 3 && <StepCommitments data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
-        {step === 4 && <StepNotifications data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
-        {step === 5 && <StepMemoryConsent data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
+        {step === 2 && <StepVoiceIntro data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
+        {step === 3 && <StepWorkMode data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
+        {step === 4 && <StepCommitments data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
+        {step === 5 && <StepNotifications data={data} updateData={updateData} onNext={nextStep} onBack={prevStep} />}
         {step === 6 && <StepIntegrations onNext={nextStep} onBack={prevStep} />}
         {step === 7 && <StepPlanPreview data={data} onComplete={completeOnboarding} onBack={prevStep} />}
         

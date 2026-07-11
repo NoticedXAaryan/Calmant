@@ -31,6 +31,8 @@ export async function GET() {
       },
       telegram: {
         provider: "telegram",
+        running: telegramHealth.liveVerified || telegramHealth.status === "connected",
+        userLinked: telegramHealth.connected,
         ...telegramHealth,
       },
       googleCalendar: {

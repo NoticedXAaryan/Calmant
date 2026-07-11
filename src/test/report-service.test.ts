@@ -47,12 +47,12 @@ describe('ReportService', () => {
 
   describe('generateEveningReport', () => {
     it('creates an evening report', async () => {
-      vi.mocked(prisma.projectTask.findMany).mockImplementation(async ({ where }: any) => {
+      vi.mocked(prisma.projectTask.findMany).mockImplementation((async ({ where }: any) => {
         if (where.status === 'completed') return [{ id: 't1', title: 'Done 1' }];
         if (where.status === 'blocked') return [{ id: 't2', title: 'Blocked 1' }];
         if (where.status === 'pending') return [{ id: 't3', title: 'Next 1' }];
         return [];
-      });
+      }) as any);
 
       const mockReport = { id: 'r2', type: 'evening' };
       vi.mocked(prisma.report.create).mockResolvedValue(mockReport as any);

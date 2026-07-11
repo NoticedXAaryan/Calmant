@@ -32,6 +32,26 @@ export async function proxy(request: NextRequest) {
 
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+  const isSignupRoute = pathname === "/signup" || pathname.startsWith("/api/auth/sign-up");
+
+  // Block signup if owner exists (solo enforcement)
+  if (isSignupRoute) {
+    try {
+      const checkUrl = new URL("/api/solo/check", request.url);
+      const checkRes = await fetch(checkUrl, {
+        headers: { "x-middleware-check": "true" },
+      });
+      if (checkRes.ok) {
+        const data = await checkRes.json();
+        if (data.ownerExists) {
+          // Owner already exists — redirect signup to login
+          return NextResponse.redirect(new URL("/login?reason=solo", request.url));
+        }
+      }
+    } catch {
+      // If check fails, allow through (first-time setup)
+    }
+  }
 
   // Logged in → redirect away from landing/auth pages to dashboard
   if ((isAuthRoute || isPublicRoute) && isAuthenticated) {

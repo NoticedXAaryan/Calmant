@@ -33,23 +33,27 @@ export async function GET(req: NextRequest) {
   }
 
   const userId = session.user.id;
-  await prisma.integrationConnection.upsert({
-    where: { userId_provider: { userId, provider: "google_calendar" } },
-    update: {
-      status: "connected",
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-    },
-    create: {
-      userId,
-      provider: "google_calendar",
-      status: "connected",
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-    },
-  });
+  
+  const tokenData = {
+    status: "connected",
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+  };
+
+  // Sync tokens for both Google Calendar and Gmail
+  await prisma.$transaction([
+    prisma.integrationConnection.upsert({
+      where: { userId_provider: { userId, provider: "google_calendar" } },
+      update: tokenData,
+      create: { userId, provider: "google_calendar", ...tokenData },
+    }),
+    prisma.integrationConnection.upsert({
+      where: { userId_provider: { userId, provider: "email" } },
+      update: tokenData,
+      create: { userId, provider: "email", ...tokenData },
+    }),
+  ]);
 
   return NextResponse.redirect(new URL("/dashboard/integrations?google=connected", req.url));
 }

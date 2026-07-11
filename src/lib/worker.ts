@@ -373,6 +373,7 @@ async function processCalendarSync() {
 async function processOverdueEscalation() {
   console.log('[Worker] Running overdue-escalation');
   const oneHourAgo = new Date(Date.now() - 3600000);
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600000);
   
   const overdueTasks = await prisma.task.findMany({
     where: {
@@ -387,6 +388,15 @@ async function processOverdueEscalation() {
   });
 
   for (const task of overdueTasks) {
+    // If it's a calendar event or more than 24h old, mark as MISSED
+    if (task.calEventId || task.deadline < twentyFourHoursAgo || task.snoozeCount >= 3) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: 'MISSED', lastAlertedAt: new Date() }
+      });
+      continue;
+    }
+
     if (task.user.email) {
       await notifyCriticalTasks(task.userId, [task as any], task.user.email);
     }

@@ -8,6 +8,9 @@ import { CommandHeader } from "@/components/app/premium/CommandHeader";
 import { PendingApprovalPanel } from "@/components/app/premium/PendingApprovalPanel";
 import { ActiveMissionRail } from "@/components/app/premium/ActiveMissionRail";
 import { SignalGrid } from "@/components/app/dashboard/SignalGrid";
+import { ExecutionStatusPanel } from "@/components/app/dashboard/ExecutionStatusPanel";
+import { NewGoalDialog } from "@/components/app/dashboard/NewGoalDialog";
+import { SandboxViewer } from "@/components/app/dashboard/SandboxViewer";
 
 export function CommandCenterDashboard() {
   const router = useRouter();
@@ -93,7 +96,10 @@ export function CommandCenterDashboard() {
           )}
 
           <div className="space-y-4">
-            <h2 className="text-xl font-medium tracking-tight text-foreground/90">Active Goals</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-medium tracking-tight text-foreground/90">Active Goals</h2>
+              <NewGoalDialog onGoalCreated={loadData} />
+            </div>
             {data.activeGoals.length === 0 ? (
               <div className="rounded-xl border border-border/40 bg-card/40 backdrop-blur-xl p-8 text-center shadow-sm">
                 <p className="text-sm text-muted-foreground">No active goals found.</p>
@@ -120,8 +126,22 @@ export function CommandCenterDashboard() {
 
           <div className="space-y-4">
             <h2 className="text-xl font-medium tracking-tight text-foreground/90">Active Project Cells</h2>
-            {activeMissions.length > 0 ? (
-              <ActiveMissionRail missions={activeMissions} />
+            {data.activeProjectCells.length > 0 ? (
+              <div className="space-y-3">
+                {data.activeProjectCells.map((cell: any) => (
+                  <ExecutionStatusPanel
+                    key={cell.id}
+                    projectCellId={cell.id}
+                    onResume={(id) => {
+                      fetch('/api/execution/resume', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ projectCellId: id, resumeToPhase: 'research' }),
+                      }).then(loadData);
+                    }}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="rounded-xl border border-border/40 bg-card/40 backdrop-blur-xl p-8 text-center shadow-sm">
                 <p className="text-sm text-muted-foreground">No active project cells.</p>
@@ -153,6 +173,8 @@ export function CommandCenterDashboard() {
             { label: "Approvals", value: data.approvals.length, className: "text-[var(--color-calmant-amber)]" },
           ]} />
           
+          <SandboxViewer />
+
           <div className="space-y-4">
             <h2 className="text-xl font-medium tracking-tight text-foreground/90">Latest Report</h2>
             {report ? (
