@@ -57,7 +57,9 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Install Prisma CLI globally (with all transitive deps like 'effect')
-RUN npm install -g prisma@6.19.3
+# Then fix permissions so the nextjs user can download engine binaries at runtime
+RUN npm install -g prisma@6.19.3 && \
+    chown -R 1001:1001 /usr/lib/node_modules/prisma
 
 # We also need playwright installed locally to run chromium.launch
 COPY --from=builder /app/node_modules/playwright ./node_modules/playwright
