@@ -51,11 +51,13 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma: copy schema, generated client, AND full CLI for runtime db push
+# Prisma: copy schema and generated client for runtime
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
+# Install Prisma CLI globally (with all transitive deps like 'effect')
+RUN npm install -g prisma@6.19.3
 
 # We also need playwright installed locally to run chromium.launch
 COPY --from=builder /app/node_modules/playwright ./node_modules/playwright

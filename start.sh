@@ -6,8 +6,8 @@ echo "Starting application..."
 # Ensure the server listens on all interfaces (not just 127.0.0.1)
 export HOSTNAME="${HOSTNAME:-0.0.0.0}"
 
-# ── Prisma CLI via direct node path (no .bin symlinks in standalone) ──
-PRISMA="node ./node_modules/prisma/build/index.js"
+# Prisma CLI is globally installed in the Docker image
+PRISMA="prisma"
 
 # Regenerate the Prisma client for THIS platform (the runner image)
 $PRISMA generate 2>&1 || {
