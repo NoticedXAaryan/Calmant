@@ -3,15 +3,18 @@ set -e
 
 echo "Starting application..."
 
-# If the user sets RESET_DB=true in Docploy, we will wipe and reset the database.
+# Ensure Prisma client is generated for this platform
+npx prisma generate
+
+# If the user sets RESET_DB=true in Dokploy, we will wipe and reset the database.
 if [ "$RESET_DB" = "true" ]; then
   echo "WARNING: RESET_DB is true. Wiping the database..."
-  npx --yes prisma@6.19.3 db push --force-reset --accept-data-loss
+  npx prisma db push --force-reset --accept-data-loss
   echo "Database reset complete."
 else
-  # Normally, we just apply any pending migrations without data loss
+  # Normally, we just apply any pending schema changes
   echo "Applying database schema..."
-  npx --yes prisma@6.19.3 db push --accept-data-loss
+  npx prisma db push --accept-data-loss
 fi
 
 # Start the Next.js standalone server

@@ -7,6 +7,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+sandbox/node_modules
 
 # testing
 /coverage
@@ -60,3 +61,21 @@ check_*.ts
 test-*.ts
 test*.mjs
 _index.json
+
+# test/debug output
+eval_result*.json
+test_*.json
+test_*.txt
+final_test.json
+results*.txt
+help_output.json
+server_code.json
+debug_*.py
+extensive_test.py
+qa-script.js
+update-context.js
+test-e2e.js
+install.sh
+
+# config dumps (not project config)
+config.json

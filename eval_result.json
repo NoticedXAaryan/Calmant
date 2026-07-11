@@ -1,8 +1,0 @@
-{
-  "status": 200,
-  "data": {
-    "stdout": "STDOUT: \u2713 Set model.default = openrouter/free in /root/.hermes/config.yaml\n\nSTDERR: \n",
-    "stderr": "",
-    "returncode": 0
-  }
-}
