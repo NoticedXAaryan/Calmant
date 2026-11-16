@@ -18,7 +18,7 @@ export class TaskPlanner {
     const skills = await prisma.skill.findMany({ where: { enabled: true } });
     const skillList = skills.length > 0 ? skills.map(s => `- ${s.name}: ${s.description}`).join('\n') : "No active skills available.";
 
-    let systemInstruction = PLAN_SYSTEM_PROMPT
+    const systemInstruction = PLAN_SYSTEM_PROMPT
       .replace("{{TOOL_REGISTRY}}", toolDescriptions)
       .replace("{{CLASSIFICATION}}", JSON.stringify(classification, null, 2))
       .replace("{{SKILLS_LIST}}", skillList);

@@ -43,7 +43,7 @@ export class MCPClient {
     // but demonstrates the registry integration).
     
     // Using npx for everything as a fallback if not full path
-    let cmd = server.command;
+    const cmd = server.command;
     const argsStr = server.args.join(" ");
     
     // Mock the stdio protocol by passing the tool request directly to a hypothetical CLI

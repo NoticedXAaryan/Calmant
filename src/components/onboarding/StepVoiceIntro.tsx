@@ -53,29 +53,7 @@ export function StepVoiceIntro({ data, updateData, onNext, onBack }: StepVoiceIn
   const [persona, setPersona] = useState<ParsedPersona | null>(null);
   const [editedBio, setEditedBio] = useState("");
 
-  const handleTranscript = useCallback((text: string) => {
-    setTranscripts(prev => {
-      const updated = [...prev];
-      updated[currentPrompt] = text;
-      return updated;
-    });
-
-    // Move to next prompt or to processing
-    if (currentPrompt < PROMPTS.length - 1) {
-      setCurrentPrompt(prev => prev + 1);
-      setInterimText("");
-    } else {
-      // All prompts answered — generate persona
-      setPhase("processing");
-      generatePersona([...transcripts.slice(0, currentPrompt), text]);
-    }
-  }, [currentPrompt, transcripts]);
-
-  const handleInterimTranscript = useCallback((text: string) => {
-    setInterimText(text);
-  }, []);
-
-  const generatePersona = async (allTranscripts: string[]) => {
+  const generatePersona = useCallback(async (allTranscripts: string[]) => {
     setIsGenerating(true);
     try {
       const res = await fetch("/api/onboarding/generate-persona", {
@@ -112,7 +90,27 @@ export function StepVoiceIntro({ data, updateData, onNext, onBack }: StepVoiceIn
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [data.goal, updateData]);
+
+  const handleTranscript = useCallback((text: string) => {
+    setTranscripts(prev => {
+      const updated = [...prev];
+      updated[currentPrompt] = text;
+      return updated;
+    });
+
+    if (currentPrompt < PROMPTS.length - 1) {
+      setCurrentPrompt(prev => prev + 1);
+      setInterimText("");
+    } else {
+      setPhase("processing");
+      generatePersona([...transcripts.slice(0, currentPrompt), text]);
+    }
+  }, [currentPrompt, transcripts, generatePersona]);
+
+  const handleInterimTranscript = useCallback((text: string) => {
+    setInterimText(text);
+  }, []);
 
   const startVoiceFlow = () => {
     setPhase("recording");

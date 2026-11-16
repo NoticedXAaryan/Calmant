@@ -30,7 +30,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const userId = await getUserId();
-    const { title, objective } = await request.json();
+    const body = await request.json();
+    const title = typeof body?.title === "string" ? body.title.trim() : "";
+    const explicitObjective = typeof body?.objective === "string" ? body.objective.trim() : "";
+    const description = typeof body?.description === "string" ? body.description.trim() : "";
+    const objective = explicitObjective || description || title;
+    const successCriteria = Array.isArray(body?.successCriteria)
+      ? body.successCriteria.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0)
+      : undefined;
 
     if (!title || !objective) {
       return NextResponse.json(
@@ -39,7 +46,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { goal, projectCell } = await CommandCenterService.createObjective(userId, title, objective);
+    const { goal, projectCell } = await CommandCenterService.createObjective(
+      userId,
+      title,
+      objective,
+      { successCriteria },
+    );
 
     return NextResponse.json({
       success: true,

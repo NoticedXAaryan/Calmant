@@ -69,7 +69,7 @@ export class ExecutionOrchestrator {
         type: 'run_phase',
         projectCellId,
         phase: state.phase,
-        userId: await this.getOwnerId(),
+        userId: await this.getOwnerId(projectCellId),
       }, { delay: 1000 }); // Small delay to prevent tight loops
     }
 
@@ -166,7 +166,7 @@ export class ExecutionOrchestrator {
       type: 'run_phase',
       projectCellId,
       phase: state.phase,
-      userId: await this.getOwnerId(),
+      userId: await this.getOwnerId(projectCellId),
     });
 
     return state;
@@ -210,7 +210,7 @@ export class ExecutionOrchestrator {
     state: ExecutionState,
     result: PhaseResult,
   ): Promise<void> {
-    const userId = await this.getOwnerId();
+    const userId = await this.getOwnerId(state.projectCellId);
     const message = [
       `🚧 *Execution Blocked*`,
       ``,
@@ -238,7 +238,7 @@ export class ExecutionOrchestrator {
   }
 
   private static async notifyOwnerCompleted(state: ExecutionState): Promise<void> {
-    const userId = await this.getOwnerId();
+    const userId = await this.getOwnerId(state.projectCellId);
     const summary = ExecutionLoop.summarize(state);
 
     await enqueueNotification({
@@ -253,7 +253,15 @@ export class ExecutionOrchestrator {
     });
   }
 
-  private static async getOwnerId(): Promise<string> {
+  private static async getOwnerId(projectCellId?: string): Promise<string> {
+    if (projectCellId) {
+      const cell = await prisma.projectCell.findUnique({
+        where: { id: projectCellId },
+        select: { userId: true },
+      });
+      if (cell?.userId) return cell.userId;
+    }
+
     const owner = await prisma.user.findFirst({ select: { id: true } });
     if (!owner) throw new Error('No owner found.');
     return owner.id;

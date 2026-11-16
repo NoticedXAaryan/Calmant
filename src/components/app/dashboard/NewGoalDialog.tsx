@@ -25,61 +25,76 @@ export function NewGoalDialog({ onGoalCreated }: NewGoalDialogProps) {
   const [successCriteria, setSuccessCriteria] = useState("");
   const [startExecution, setStartExecution] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"input" | "confirm">("input");
+
+  const criteria = successCriteria
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
     setIsCreating(true);
+    setError(null);
+
+    const objective = description.trim() || title.trim();
 
     try {
-      // 1. Create the goal
       const goalRes = await fetch("/api/goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim() || undefined,
-          successCriteria: successCriteria.trim()
-            ? successCriteria.split("\n").filter(Boolean)
-            : undefined,
+          objective,
+          successCriteria: criteria.length ? criteria : undefined,
         }),
       });
 
-      if (!goalRes.ok) throw new Error("Failed to create goal");
-      const { goal } = await goalRes.json();
+      const payload = await goalRes.json().catch(() => null);
+      if (!goalRes.ok || !payload?.success || !payload.data?.goal) {
+        throw new Error(payload?.error || "Failed to create goal");
+      }
 
-      // 2. Optionally start the execution loop
+      const goal = payload.data.goal as { id: string; title: string; description?: string | null };
+      const projectCell = payload.data.projectCell as { id: string } | undefined;
+
       if (startExecution) {
-        await fetch("/api/execution/start", {
+        const execRes = await fetch("/api/execution/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             goalId: goal.id,
+            projectCellId: projectCell?.id,
             title: goal.title,
-            objective: goal.description || goal.title,
-            successCriteria: successCriteria.trim()
-              ? successCriteria.split("\n").filter(Boolean)
-              : [],
+            objective: goal.description || objective,
+            successCriteria: criteria,
           }),
         });
+        if (!execRes.ok) {
+          const execPayload = await execRes.json().catch(() => null);
+          onGoalCreated?.();
+          throw new Error(execPayload?.error || "Goal saved, but the execution loop did not start.");
+        }
       }
 
-      // Reset and close
       setTitle("");
       setDescription("");
       setSuccessCriteria("");
       setStep("input");
+      setError(null);
       setOpen(false);
       onGoalCreated?.();
     } catch (err) {
       console.error("[NewGoalDialog] Error:", err);
+      setError(err instanceof Error ? err.message : "Failed to create goal");
     } finally {
       setIsCreating(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); setStep("input"); }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); setStep("input"); setError(null); }}>
       <DialogTrigger
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-dashed border-primary/30 text-primary rounded-md hover:bg-primary/5 transition-colors"
         >
@@ -187,11 +202,11 @@ export function NewGoalDialog({ onGoalCreated }: NewGoalDialogProps) {
                     <p className="text-sm mt-0.5">{description}</p>
                   </div>
                 )}
-                {successCriteria && (
+                {criteria.length > 0 && (
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wider">Success Criteria</p>
                     <ul className="text-sm mt-0.5 space-y-0.5">
-                      {successCriteria.split("\n").filter(Boolean).map((c, i) => (
+                      {criteria.map((c, i) => (
                         <li key={i} className="flex items-start gap-1.5">
                           <span className="text-primary mt-0.5">•</span>
                           {c}
@@ -207,6 +222,10 @@ export function NewGoalDialog({ onGoalCreated }: NewGoalDialogProps) {
                   </p>
                 )}
               </div>
+
+              {error && (
+                <p className="text-sm text-destructive" role="alert">{error}</p>
+              )}
 
               <div className="flex items-center justify-between">
                 <Button variant="ghost" size="sm" onClick={() => setStep("input")}>

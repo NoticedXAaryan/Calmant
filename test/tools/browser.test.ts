@@ -76,7 +76,8 @@ describe("Browser Tool", () => {
       "mock-session-id",
       "user-123",
       "run-456",
-      "tool-789"
+      "tool-789",
+      undefined
     );
     expect(result).toContain("Artifact ID: mock-artifact-id");
   });

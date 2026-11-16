@@ -441,7 +441,7 @@ export class ExecutionLoop {
   }
 
   private static async persistState(state: ExecutionState): Promise<void> {
-    const ownerId = await this.getOwnerId();
+    const ownerId = await this.getOwnerId(state.projectCellId);
     const content = JSON.stringify(state, null, 2);
 
     // Upsert the execution state artifact
@@ -497,7 +497,7 @@ export class ExecutionLoop {
     type: string,
     metadata: Record<string, any>,
   ): Promise<void> {
-    const ownerId = await this.getOwnerId();
+    const ownerId = await this.getOwnerId(projectCellId);
 
     // Get next sequence number
     const lastEvent = await prisma.agentEvent.findFirst({
@@ -519,7 +519,15 @@ export class ExecutionLoop {
     });
   }
 
-  private static async getOwnerId(): Promise<string> {
+  private static async getOwnerId(projectCellId?: string): Promise<string> {
+    if (projectCellId) {
+      const cell = await prisma.projectCell.findUnique({
+        where: { id: projectCellId },
+        select: { userId: true },
+      });
+      if (cell?.userId) return cell.userId;
+    }
+
     const owner = await prisma.user.findFirst({ select: { id: true } });
     if (!owner) throw new Error('No owner found.');
     return owner.id;

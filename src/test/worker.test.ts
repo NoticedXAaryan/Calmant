@@ -18,6 +18,10 @@ vi.mock('@/lib/notifications', () => ({
 describe('Worker Polling Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Morning briefing pages through users. An empty page lets the job finish
+    // whether or not the server clock is inside the 6–10am window.
+    // @ts-expect-error mock
+    prisma.user.findMany.mockResolvedValue([]);
   });
 
   it('should process a due job and mark it as completed', async () => {

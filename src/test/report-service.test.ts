@@ -7,7 +7,7 @@ vi.mock('../lib/prisma', () => ({
     goal: { findMany: vi.fn() },
     approvalRequest: { findMany: vi.fn() },
     projectTask: { findMany: vi.fn() },
-    report: { create: vi.fn() },
+    report: { create: vi.fn(), update: vi.fn() },
   }
 }));
 
@@ -27,6 +27,7 @@ describe('ReportService', () => {
       
       const mockReport = { id: 'r1', type: 'morning' };
       vi.mocked(prisma.report.create).mockResolvedValue(mockReport as any);
+      vi.mocked(prisma.report.update).mockResolvedValue({ ...mockReport, status: 'sent' } as any);
 
       const result = await ReportService.generateMorningReport('user_1');
 
@@ -35,12 +36,16 @@ describe('ReportService', () => {
         data: expect.objectContaining({
           type: 'morning',
           userId: 'user_1',
-          data: expect.objectContaining({
+          payload: expect.objectContaining({
             activeGoalsCount: 2,
             pendingApprovalsCount: 1,
             plannedTasksCount: 2,
           })
         })
+      }));
+      expect(prisma.report.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'r1' },
+        data: { status: 'sent' },
       }));
     });
   });
@@ -56,6 +61,7 @@ describe('ReportService', () => {
 
       const mockReport = { id: 'r2', type: 'evening' };
       vi.mocked(prisma.report.create).mockResolvedValue(mockReport as any);
+      vi.mocked(prisma.report.update).mockResolvedValue({ ...mockReport, status: 'sent' } as any);
 
       const result = await ReportService.generateEveningReport('user_1');
 
@@ -63,7 +69,7 @@ describe('ReportService', () => {
       expect(prisma.report.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({
           type: 'evening',
-          data: expect.objectContaining({
+          payload: expect.objectContaining({
             completedTasksCount: 1,
             blockedTasksCount: 1,
           })
