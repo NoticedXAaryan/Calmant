@@ -118,7 +118,15 @@ export function StepIntegrations({
                 <p className="text-xs text-muted-foreground">Sync your events</p>
               </div>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => window.location.href = '/api/auth/google'}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                // Full page navigation so Google OAuth can redirect out of the app.
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.assign("/api/auth/google");
+              }}
+            >
               Connect
             </Button>
           </div>

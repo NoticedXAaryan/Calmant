@@ -5,13 +5,21 @@ export class CommandCenterService {
   /**
    * Captures a new objective, creating both a Goal and a ProjectCell.
    */
-  static async createObjective(userId: string, title: string, objective: string) {
+  static async createObjective(
+    userId: string,
+    title: string,
+    objective: string,
+    options?: { successCriteria?: string[] },
+  ) {
+    const successCriteria = options?.successCriteria?.map((item) => item.trim()).filter(Boolean);
+
     const goal = await prisma.goal.create({
       data: {
         userId,
         title,
         description: objective,
         status: "active",
+        ...(successCriteria?.length ? { successCriteria } : {}),
       },
     });
 
@@ -20,6 +28,7 @@ export class CommandCenterService {
       title,
       objective,
       goalId: goal.id,
+      ...(successCriteria?.length ? { successCriteria } : {}),
     });
 
     await prisma.auditEvent.create({
@@ -106,7 +115,7 @@ export class CommandCenterService {
       where: { userId, status: "pending" },
     });
 
-    let blockers = [];
+    const blockers = [];
     for (const cell of activeProjectCells) {
       blockers.push(...cell.tasks.filter((t) => t.status === "blocked"));
     }

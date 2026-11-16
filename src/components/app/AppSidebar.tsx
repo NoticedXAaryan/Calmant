@@ -7,18 +7,17 @@ import {
   Calendar,
   LayoutDashboard,
   MessageSquare,
-  ListTodo,
   Brain,
   Zap,
   Activity,
-  History,
   Settings,
   FolderGit2,
   Search,
   Target,
   Bell,
   Blocks,
-  HelpCircle,
+  CheckSquare,
+  Flag,
 } from "lucide-react";
 
 import { useSession, signOut } from "@/lib/auth-client";
@@ -46,6 +45,8 @@ const navGroups = [
     title: "Work",
     items: [
       { title: "Today", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Goals", url: "/dashboard/goals", icon: Flag },
+      { title: "Approvals", url: "/dashboard/approvals", icon: CheckSquare },
       { title: "Plan", url: "/dashboard/schedule", icon: Calendar },
       { title: "Focus", url: "/dashboard/habits", icon: Target },
     ],
@@ -111,7 +112,7 @@ export function AppSidebar() {
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      isActive={pathname === item.url || (item.url === '/dashboard' && pathname === '/dashboard')}
+                      isActive={item.url === "/dashboard" ? pathname === "/dashboard" : pathname === item.url || pathname.startsWith(`${item.url}/`)}
                       tooltip={item.title}
                       render={<Link href={item.url} />}
                     >
@@ -133,12 +134,6 @@ export function AppSidebar() {
                 <SidebarMenuButton isActive={pathname.startsWith("/dashboard/settings")} render={<Link href="/dashboard/settings" />}>
                   <Settings />
                   <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link href="/dashboard/settings" />}>
-                  <HelpCircle />
-                  <span>Help & Support</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

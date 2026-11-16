@@ -114,7 +114,7 @@ export class GmailService {
         const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
         const from = headers.find((h: any) => h.name === 'From')?.value || '';
         
-        let snippet = msg.snippet || '';
+        const snippet = msg.snippet || '';
 
         // Minimal LLM check
         const prompt = `Analyze this email from "${from}" with subject "${subject}". Snippet: "${snippet}".

@@ -251,7 +251,7 @@ export class MemoryManager {
    * Consolidate memory — merge duplicates, promote high-confidence, archive old entries.
    */
   static async consolidate(): Promise<{ merged: number; promoted: number; archived: number }> {
-    let merged = 0;
+    const merged = 0;
     let promoted = 0;
     let archived = 0;
 

@@ -14,7 +14,7 @@ export class TaskClassifier {
 
   async classify(userInput: string, context?: string, runId?: string): Promise<TaskClassification> {
     const toolDescriptions = registry.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n');
-    let systemInstruction = CLASSIFY_SYSTEM_PROMPT.replace("{{TOOL_REGISTRY}}", toolDescriptions);
+    const systemInstruction = CLASSIFY_SYSTEM_PROMPT.replace("{{TOOL_REGISTRY}}", toolDescriptions);
 
     const prompt = `
 Context:

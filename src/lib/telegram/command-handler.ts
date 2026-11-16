@@ -174,8 +174,8 @@ export class CommandHandler {
 
       try {
         // Get or create session
-        let activeRes = await fetch(`${sandboxUrl}/sessions/active`);
-        let activeData = await activeRes.json();
+        const activeRes = await fetch(`${sandboxUrl}/sessions/active`);
+        const activeData = await activeRes.json();
         let sessionId = activeData.sessionId;
 
         if (!sessionId) {

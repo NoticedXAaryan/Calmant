@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, X, Bell } from "lucide-react";
 
@@ -15,6 +16,7 @@ interface Notification {
 }
 
 export default function NotificationBanner() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -117,7 +119,7 @@ export default function NotificationBanner() {
             }}
             onClick={() => {
               if (notif.id.startsWith("degraded-")) {
-                window.location.href = "/dashboard/integrations";
+                router.push("/dashboard/integrations");
               }
             }}
           >

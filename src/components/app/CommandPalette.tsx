@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "@/lib/auth-client";
 import {
   Calendar,
   Settings,
   LayoutDashboard,
   MessageSquare,
   Activity,
+  CheckSquare,
+  Flag,
   LogOut,
   Target,
   Zap,
@@ -21,7 +24,6 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
 
 export function CommandPalette() {
@@ -58,7 +60,6 @@ export function CommandPalette() {
           <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/assistant"))}>
             <MessageSquare className="mr-2 h-4 w-4" />
             <span>Ask Assistant</span>
-            <CommandShortcut>⌘A</CommandShortcut>
           </CommandItem>
         </CommandGroup>
 
@@ -81,17 +82,28 @@ export function CommandPalette() {
             <Zap className="mr-2 h-4 w-4" />
             <span>Automations</span>
           </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/approvals"))}>
+            <CheckSquare className="mr-2 h-4 w-4" />
+            <span>Approvals</span>
+          </CommandItem>
+          <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/goals"))}>
+            <Flag className="mr-2 h-4 w-4" />
+            <span>Goals</span>
+          </CommandItem>
           <CommandItem onSelect={() => runCommand(() => router.push("/dashboard/settings"))}>
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
-            <CommandShortcut>⌘S</CommandShortcut>
           </CommandItem>
         </CommandGroup>
         
         <CommandSeparator />
         
         <CommandGroup heading="Account">
-          <CommandItem onSelect={() => runCommand(() => console.log("Logging out..."))}>
+          <CommandItem onSelect={() => runCommand(async () => {
+            await signOut();
+            router.push("/login");
+            router.refresh();
+          })}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Sign Out</span>
           </CommandItem>

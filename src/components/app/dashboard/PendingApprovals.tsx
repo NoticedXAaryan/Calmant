@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/app/EmptyState";
 
 interface ApprovalRequest {
   id: string;
@@ -14,7 +15,7 @@ interface ApprovalRequest {
   createdAt: string;
 }
 
-export function PendingApprovals() {
+export function PendingApprovals({ showEmpty = false }: { showEmpty?: boolean }) {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -61,7 +62,14 @@ export function PendingApprovals() {
   }
 
   if (approvals.length === 0) {
-    return null;
+    if (!showEmpty) return null;
+    return (
+      <EmptyState
+        title="Nothing waiting"
+        description="When Calmant wants to send a message, change a calendar, or submit a form, it will stop here first."
+        icon={CheckCircle2}
+      />
+    );
   }
 
   return (
